@@ -17,20 +17,21 @@ from typing import Literal
 from google import genai
 from tqdm import tqdm
 
-# 类型别名（Python 3.13）
+# 类型别名
 type Label = Literal[0, 1, 2]
 type ScoreCategory = Literal["low_value", "normal", "interrupt"]
 type TrainingSample = dict[str, str | int]
 type ChatMessage = dict[str, str]
 
 # Gemini API Prompt 模板
+# 如果你想拿去训练其他模版的机器人，记得把这个改了
 SCORING_PROMPT = """你是一个聊天消息价值评估专家。请根据以下标准对消息进行评分。
 
 ## 评分标准
 
 **Label 0 (low_value)** - 低价值消息:
 - 分数范围: 0.0 - 0.3
-- 特征: 纯表情、简短笑声、无实质内容
+- 特征: 纯表情、简短笑声、无实质内容、简短无价值对话等
 - 示例: "哈哈哈", "233", "笑死我了", "啊啊啊", "www", "😂😂😂"
 
 **Label 1 (normal)** - 正常消息:
@@ -122,18 +123,26 @@ class GeminiLabeler:
                 )
 
                 # 解析响应
-                label_text = response.text.strip()
+                text = response.text
+                if text is None:
+                    raise ValueError("Gemini returned None response")
+
+                label_text = text.strip()
                 label = int(label_text)
 
                 if label not in (0, 1, 2):
-                    print(f"[警告] Gemini 返回无效标签: {label_text}，消息: {message[:50]}")
+                    print(
+                        f"[警告] Gemini 返回无效标签: {label_text}，消息: {message[:50]}"
+                    )
                     label = 1  # 默认为 normal
 
                 category = self._label_to_category(label)
                 return label, category
 
             except Exception as e:
-                print(f"[警告] Gemini API 调用失败 (尝试 {attempt + 1}/{self.retry_attempts}): {e}")
+                print(
+                    f"[警告] Gemini API 调用失败 (尝试 {attempt + 1}/{self.retry_attempts}): {e}"
+                )
 
                 if attempt < self.retry_attempts - 1:
                     time.sleep(self.retry_delay)
@@ -141,6 +150,9 @@ class GeminiLabeler:
                     raise RuntimeError(
                         f"Gemini API failed after {self.retry_attempts} attempts: {e}"
                     )
+
+        # Unreachable - always raises above on last attempt
+        assert False  # type: ignore[unreachable]
 
     @staticmethod
     def _label_to_category(label: Label) -> ScoreCategory:
@@ -249,7 +261,7 @@ def generate_training_data(
 
             try:
                 # 调用 Gemini API 标注
-                label, category = labeler.label_message(text)
+                label, _ = labeler.label_message(text)
 
                 # 构建训练样本
                 sample: TrainingSample = {
@@ -282,7 +294,9 @@ def generate_training_data(
                 pbar.update(1)
 
     print(f"\n[标注完成] 总样本数: {len(training_data)}")
-    print(f"          标签分布: low_value={label_counts[0]}, normal={label_counts[1]}, interrupt={label_counts[2]}")
+    print(
+        f"          标签分布: low_value={label_counts[0]}, normal={label_counts[1]}, interrupt={label_counts[2]}"
+    )
 
     return training_data
 
@@ -301,7 +315,7 @@ def save_training_data(data: list[TrainingSample], output_file: Path) -> None:
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    print(f"[保存] 完成!")
+    print("[保存] 完成!")
 
 
 def validate_training_data(data: list[TrainingSample]) -> bool:
@@ -403,7 +417,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         type=str,
-        default="gemini-2.5-flash",
+        default="gemini-2.5-flash-lite",
         dest="model",
         help="Gemini 模型名称",
     )
@@ -492,9 +506,9 @@ def main() -> None:
         # 打印标签分布
         label_counts = {0: 0, 1: 0, 2: 0}
         for sample in training_data:
-            label_counts[sample["label"]] += 1
+            label_counts[int(sample["label"])] += 1
 
-        print(f"\n标签分布:")
+        print("\n标签分布:")
         print(
             f"  - low_value (0): {label_counts[0]} ({label_counts[0] / len(training_data) * 100:.1f}%)"
         )

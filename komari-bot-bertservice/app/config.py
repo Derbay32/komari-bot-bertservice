@@ -58,6 +58,35 @@ class Settings:
     gemini_retry_attempts: int = int(os.getenv("GEMINI_RETRY_ATTEMPTS", "3"))
     gemini_retry_delay: float = float(os.getenv("GEMINI_RETRY_DELAY", "1.0"))
 
+    # Sentry 错误追踪配置
+    sentry_dsn: str | None = os.getenv("SENTRY_DSN")
+    sentry_environment: str = os.getenv(
+        "SENTRY_ENVIRONMENT",
+        "production" if os.getenv("RELOAD") != "true" else "development",
+    )
+    sentry_traces_sample_rate: float = float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1"))
+    sentry_profiles_sample_rate: float = float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "0.0"))
+
+    # 心跳监控配置
+    heartbeat_url: str | None = os.getenv("HEARTBEAT_URL")
+    heartbeat_interval: int = int(os.getenv("HEARTBEAT_INTERVAL", "30"))
+
+    @property
+    def sentry_enabled(self) -> bool:
+        """检查 Sentry 是否启用
+
+        只有当 SENTRY_DSN 有值时才启用 Sentry
+        """
+        return bool(self.sentry_dsn)
+
+    @property
+    def heartbeat_enabled(self) -> bool:
+        """检查心跳是否启用
+
+        只有当 HEARTBEAT_URL 有值时才启用心跳
+        """
+        return bool(self.heartbeat_url)
+
     @property
     def max_length(self) -> int:
         """最大序列长度"""

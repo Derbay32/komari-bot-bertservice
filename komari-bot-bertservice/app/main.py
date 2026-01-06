@@ -1,8 +1,13 @@
 """FastAPI 主应用模块"""
 
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import httpx
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.httpx import HttpxIntegration
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -18,16 +23,157 @@ from app.utils.logger import logger
 type AppState = FastAPI.state  # type: ignore[attr-defined]
 
 
+class HeartbeatManager:
+    """心跳任务管理器
+
+    管理后台心跳任务的生命周期，确保优雅启动和关闭
+    """
+
+    def __init__(self, url: str, interval: int):
+        """初始化心跳管理器
+
+        Args:
+            url: 心跳端点 URL
+            interval: 心跳间隔（秒）
+        """
+        self.url = url
+        self.interval = interval
+        self._task: asyncio.Task[None] | None = None
+        self._stop_event = asyncio.Event()
+        self._client = httpx.AsyncClient(
+            timeout=10.0,
+            headers={"User-Agent": f"{settings.app_name}/{settings.app_version}"},
+        )
+
+    async def _heartbeat_loop(self) -> None:
+        """心跳循环
+
+        定期发送心跳请求到监控端点，失败时记录但不中断服务
+        """
+        logger.info(
+            "heartbeat_started",
+            url=self.url,
+            interval=self.interval,
+        )
+
+        while not self._stop_event.is_set():
+            try:
+                # 发送空 POST 请求（Glitchtip 心跳标准）
+                response = await self._client.post(self.url, json={})
+
+                if response.status_code >= 400:
+                    logger.warning(
+                        "heartbeat_failed",
+                        status_code=response.status_code,
+                        url=self.url,
+                    )
+                else:
+                    logger.debug(
+                        "heartbeat_sent",
+                        status_code=response.status_code,
+                    )
+
+            except httpx.TimeoutException:
+                logger.warning("heartbeat_timeout", url=self.url)
+            except httpx.HTTPError as e:
+                logger.warning("heartbeat_http_error", error=str(e), url=self.url)
+            except Exception as e:
+                logger.error(
+                    "heartbeat_unexpected_error",
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+
+            # 等待间隔或停止事件
+            try:
+                await asyncio.wait_for(self._stop_event.wait(), timeout=self.interval)
+                break  # 收到停止信号
+            except asyncio.TimeoutError:
+                # 超时是正常的，继续下一次心跳
+                continue
+
+    async def start(self) -> None:
+        """启动心跳任务"""
+        if self._task is None or self._task.done():
+            self._task = asyncio.create_task(self._heartbeat_loop())
+            logger.info("heartbeat_manager_started")
+
+    async def stop(self) -> None:
+        """停止心跳任务"""
+        self._stop_event.set()
+
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+
+        await self._client.aclose()
+        logger.info("heartbeat_manager_stopped")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """管理应用生命周期
 
-    启动时加载模型，关闭时清理资源
+    启动时初始化 Sentry、启动心跳监控并加载模型，关闭时清理资源
 
     Args:
         app: FastAPI 应用实例
     """
-    # 启动
+    # ========================================
+    # 阶段 1: Sentry 初始化（最优先）
+    # ========================================
+    if settings.sentry_enabled:
+        logger.info(
+            "sentry_initializing",
+            dsn=settings.sentry_dsn[:20] + "..." if settings.sentry_dsn else None,
+            environment=settings.sentry_environment,
+            traces_sample_rate=settings.sentry_traces_sample_rate,
+        )
+
+        try:
+            sentry_sdk.init(
+                dsn=settings.sentry_dsn,
+                environment=settings.sentry_environment,
+                traces_sample_rate=settings.sentry_traces_sample_rate,
+                profiles_sample_rate=settings.sentry_profiles_sample_rate,
+                integrations=[
+                    FastApiIntegration(),
+                    HttpxIntegration(),
+                ],
+                # 过滤敏感信息
+                before_send_transaction=lambda event, _hint: event,
+                # 性能监控
+                send_default_pii=False,  # 不发送个人身份信息
+            )
+            logger.info("sentry_initialized")
+        except Exception as e:
+            logger.error(
+                "sentry_init_failed",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+    else:
+        logger.info("sentry_disabled", reason="no_dsn_provided")
+
+    # ========================================
+    # 阶段 2: 心跳监控启动
+    # ========================================
+    heartbeat_manager: HeartbeatManager | None = None
+    if settings.heartbeat_enabled:
+        heartbeat_manager = HeartbeatManager(
+            url=settings.heartbeat_url,  # type: ignore[arg-type]
+            interval=settings.heartbeat_interval,
+        )
+        await heartbeat_manager.start()
+    else:
+        logger.info("heartbeat_disabled", reason="no_url_provided")
+
+    # ========================================
+    # 阶段 3: 应用启动
+    # ========================================
     logger.info("application_starting", version=settings.app_version)
 
     # 检查模型文件是否存在
@@ -121,10 +267,25 @@ async def lifespan(app: FastAPI):
         )
         raise RuntimeError(f"Failed to load inference engine: {e}") from e
 
+    # ========================================
+    # 阶段 4: 运行时
+    # ========================================
     yield
 
-    # 关闭
+    # ========================================
+    # 阶段 5: 关闭清理
+    # ========================================
     logger.info("application_shutting_down")
+
+    # 停止心跳监控
+    if heartbeat_manager:
+        try:
+            await heartbeat_manager.stop()
+        except Exception as e:
+            logger.warning(
+                "heartbeat_cleanup_error",
+                error=str(e),
+            )
 
     # 清理推理引擎资源
     if hasattr(app.state, "inference_engine"):

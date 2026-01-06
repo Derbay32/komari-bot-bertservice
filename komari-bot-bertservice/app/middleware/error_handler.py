@@ -1,10 +1,12 @@
 """错误处理中间件"""
 
+import sentry_sdk
+
+from app.config import settings
+from app.utils.logger import logger
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-
-from app.utils.logger import logger
 
 
 class APIError(Exception):
@@ -50,6 +52,11 @@ def add_exception_handlers(app: FastAPI) -> None:
             message=exc.message,
             path=request.url.path,
         )
+
+        # 捕获到 Sentry（如果启用）
+        if settings.sentry_enabled:
+            sentry_sdk.capture_exception(exc)
+
         return JSONResponse(
             status_code=exc.status_code,
             content={"data": None, "error": {"message": exc.message, "code": exc.code}},
@@ -64,6 +71,11 @@ def add_exception_handlers(app: FastAPI) -> None:
             errors=errors,
             path=request.url.path,
         )
+
+        # 捕获到 Sentry（如果启用）
+        if settings.sentry_enabled:
+            sentry_sdk.capture_exception(exc)
+
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={
@@ -86,6 +98,11 @@ def add_exception_handlers(app: FastAPI) -> None:
             path=request.url.path,
             exc_info=True,
         )
+
+        # 捕获到 Sentry（如果启用）
+        if settings.sentry_enabled:
+            sentry_sdk.capture_exception(exc)
+
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={

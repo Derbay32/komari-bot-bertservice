@@ -22,6 +22,7 @@ from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
     EarlyStoppingCallback,
+    EvalPrediction,
     Trainer,
     TrainingArguments,
 )
@@ -172,19 +173,20 @@ def load_training_data(data_path: str) -> Dataset:
     return Dataset.from_list(data)
 
 
-def compute_metrics(eval_preds: tuple[np.ndarray, np.ndarray]) -> MetricsDict:
+def compute_metrics(eval_preds: EvalPrediction) -> MetricsDict:
     """计算评估指标
 
     Args:
-        eval_preds: (predictions, labels) 元组
+        eval_preds: EvalPrediction 对象
 
     Returns:
         指标字典
     """
-    logits, labels = eval_preds
+    logits = eval_preds.predictions
+    labels = eval_preds.label_ids
     predictions = np.argmax(logits, axis=-1)
 
-    accuracy = accuracy_score(labels, predictions)
+    accuracy = float(accuracy_score(labels, predictions))
 
     return {
         "accuracy": accuracy,
@@ -241,7 +243,7 @@ class DataProcessor:
                 texts.append(message)
 
         # Tokenization
-        tokenized = self.tokenizer(
+        tokenized = self.tokenizer(  # type: ignore[call-arg]
             texts,
             max_length=self.max_length,
             truncation=True,
@@ -551,11 +553,11 @@ def main() -> None:
 
     # W&B 初始化
     if args.wandb:
-        import wandb
+        import wandb  # type: ignore
 
         wandb.init(
             project=args.wandb_project or "bert-scoring",
-            name=args.wand_run_name,
+            name=args.wandb_run_name,
             config={
                 "model": config.model.__dict__,
                 "training": config.training.__dict__,

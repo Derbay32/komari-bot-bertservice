@@ -171,16 +171,71 @@ GET /metrics
 
 通过环境变量配置：
 
+### 模型配置
+
 | 变量             | 默认值                          | 说明            |
 | ---------------- | ------------------------------- | --------------- |
 | `MODEL_PATH`     | `models/tiny_bert_scoring.onnx` | ONNX 模型路径   |
 | `TOKENIZER_PATH` | `models/tokenizer`              | 分词器路径      |
 | `USE_GPU`        | `false`                         | 是否使用 GPU    |
-| `CACHE_SIZE`     | `1024`                          | LRU 缓存大小    |
-| `API_HOST`       | `0.0.0.0`                       | API 监听地址    |
-| `API_PORT`       | `8000`                          | API 监听端口    |
-| `LOG_LEVEL`      | `INFO`                          | 日志级别        |
-| `CORS_ORIGINS`   | `*`                             | CORS 允许的来源 |
+
+### 推理配置
+
+| 变量                  | 默认值  | 说明           |
+| --------------------- | ------- | -------------- |
+| `CACHE_SIZE`          | `1024`  | LRU 缓存大小   |
+| `ENABLE_PARALLEL`     | `true`  | 是否并行推理   |
+| `MAX_BATCH_SIZE`      | `50`    | 最大批处理大小 |
+
+### API 配置
+
+| 变量           | 默认值    | 说明            |
+| -------------- | --------- | --------------- |
+| `API_HOST`     | `0.0.0.0` | API 监听地址    |
+| `API_PORT`     | `8000`    | API 监听端口    |
+| `WORKERS`      | `4`       | 工作进程数      |
+| `CORS_ORIGINS` | (空)      | CORS 允许的来源 |
+
+### 日志配置
+
+| 变量        | 默认值 | 说明     |
+| ----------- | ------ | -------- |
+| `LOG_LEVEL` | `INFO` | 日志级别 |
+
+### Sentry 错误追踪（可选）
+
+启用 Sentry/Glitchtip 错误追踪：
+
+| 变量                        | 默认值    | 说明                          |
+| --------------------------- | --------- | ----------------------------- |
+| `SENTRY_DSN`                | (空)      | Sentry DSN（必须设置才能启用）|
+| `SENTRY_ENVIRONMENT`        | 自动检测  | 环境名称（production/development）|
+| `SENTRY_TRACES_SAMPLE_RATE` | `0.1`     | 性能追踪采样率（0.0-1.0）     |
+| `SENTRY_PROFILES_SAMPLE_RATE` | `0.0`   | 性能分析采样率（0.0-1.0）     |
+
+**示例：**
+```bash
+# 启用 Sentry 错误追踪和性能监控
+export SENTRY_DSN="https://your-dsn@sentry.io/project-id"
+export SENTRY_ENVIRONMENT="production"
+export SENTRY_TRACES_SAMPLE_RATE="0.1"
+```
+
+### 心跳监控（可选）
+
+启用 Glitchtip 心跳监控：
+
+| 变量                 | 默认值 | 说明                    |
+| -------------------- | ------ | ----------------------- |
+| `HEARTBEAT_URL`      | (空)   | 心跳端点 URL            |
+| `HEARTBEAT_INTERVAL` | `30`   | 心跳间隔（秒）          |
+
+**示例：**
+```bash
+# 启用每 30 秒的心跳监控
+export HEARTBEAT_URL="https://heartbeat.glitchtip.com/bproject-id/uuid"
+export HEARTBEAT_INTERVAL="30"
+```
 
 ## 开发
 

@@ -94,10 +94,17 @@ def export_to_onnx(
 
     logger.info(f"Model exported to {output_path}")
 
-    # 保存 tokenizer
+    # 保存 tokenizer 和配置
     tokenizer_dir = output_file.parent / "tokenizer"
+    tokenizer_dir.mkdir(parents=True, exist_ok=True)
     tokenizer.save_pretrained(str(tokenizer_dir))
-    logger.info(f"Tokenizer saved to {tokenizer_dir}")
+
+    # 保存模型配置
+    from transformers import AutoConfig
+    config = AutoConfig.from_pretrained(model_path)
+    config.save_pretrained(str(tokenizer_dir))
+
+    logger.info(f"Tokenizer and config saved to {tokenizer_dir}")
 
 
 def validate_onnx_model(

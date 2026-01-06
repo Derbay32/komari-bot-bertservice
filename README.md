@@ -202,6 +202,27 @@ GET /metrics
 | ----------- | ------ | -------- |
 | `LOG_LEVEL` | `INFO` | 日志级别 |
 
+### HuggingFace 镜像（可选）
+
+使用 HuggingFace 镜像加速模型下载（中国大陆地区推荐）：
+
+| 变量           | 默认值                  | 说明                    |
+| -------------- | ----------------------- | ----------------------- |
+| `HF_ENDPOINT`  | `https://hf-mirror.com` | HuggingFace 镜像端点    |
+
+**示例：**
+```bash
+# 使用 hf-mirror 镜像
+export HF_ENDPOINT="https://hf-mirror.com"
+
+# 或使用阿里云镜像
+export HF_ENDPOINT="https://huggingface.co.mirror.aliyuncs.com"
+```
+
+**常用镜像地址：**
+- HF-Mirror: `https://hf-mirror.com`
+- 阿里云: `https://huggingface.co.mirror.aliyuncs.com`
+
 ### Sentry 错误追踪（可选）
 
 启用 Sentry/Glitchtip 错误追踪：

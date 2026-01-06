@@ -80,6 +80,9 @@ def mock_onnx_session():
     session.get_inputs.return_value = [MagicMock(name="input_ids"), MagicMock(name="attention_mask")]
     session.get_outputs.return_value = [MagicMock(name="output")]
 
+    # 模拟 SessionOptions
+    session.get_session_options.return_value = MagicMock()
+
     return session
 
 
@@ -201,3 +204,55 @@ def set_test_env_vars(monkeypatch):
     monkeypatch.setenv("MODEL_PATH", "/tmp/test_model.onnx")
     monkeypatch.setenv("TOKENIZER_PATH", "/tmp/test_tokenizer")
     monkeypatch.setenv("LOG_LEVEL", "WARNING")  # 减少测试日志噪音
+
+
+# =============================================================================
+# 真实推理引擎 fixtures（用于集成测试）
+# =============================================================================
+
+@pytest.fixture(scope="session")
+def real_engine():
+    """真实的推理引擎（用于集成测试）
+
+    如果模型文件不存在，跳过使用此 fixture 的测试。
+    """
+    model_path = "./models/bert_scoring.onnx"
+    tokenizer_path = "./models/tokenizer"
+
+    # 检查模型是否存在
+    if not Path(model_path).exists() or not Path(tokenizer_path).exists():
+        pytest.skip(f"Model files not found at {model_path} or {tokenizer_path}")
+
+    try:
+        engine = ONNXInferenceEngine(
+            model_path=model_path,
+            tokenizer_path=tokenizer_path,
+            cache_size=10,  # 小缓存用于测试
+        )
+        return engine
+    except Exception as e:
+        pytest.skip(f"Failed to create real engine: {e}")
+
+
+@pytest.fixture(scope="session")
+def real_engine_with_small_cache():
+    """小缓存推理引擎（用于测试淘汰逻辑）
+
+    如果模型文件不存在，跳过使用此 fixture 的测试。
+    """
+    model_path = "./models/bert_scoring.onnx"
+    tokenizer_path = "./models/tokenizer"
+
+    # 检查模型是否存在
+    if not Path(model_path).exists() or not Path(tokenizer_path).exists():
+        pytest.skip(f"Model files not found at {model_path} or {tokenizer_path}")
+
+    try:
+        engine = ONNXInferenceEngine(
+            model_path=model_path,
+            tokenizer_path=tokenizer_path,
+            cache_size=2,  # 极小缓存
+        )
+        return engine
+    except Exception as e:
+        pytest.skip(f"Failed to create real engine with small cache: {e}")

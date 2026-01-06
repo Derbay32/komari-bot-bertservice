@@ -10,6 +10,14 @@ services:
       - TOKENIZER_PATH=/app/models/tokenizer
       - USE_GPU=false
       - LOG_LEVEL=info
+      # Sentry 错误追踪（可选）
+      - SENTRY_DSN=${SENTRY_DSN}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
+      - SENTRY_TRACES_SAMPLE_RATE=${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      - SENTRY_PROFILES_SAMPLE_RATE=${SENTRY_PROFILES_SAMPLE_RATE:-0.0}
+      # 心跳监控（可选）
+      - HEARTBEAT_URL=${HEARTBEAT_URL}
+      - HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL:-30}
     volumes:
       - ./models:/app/models:ro
     restart: unless-stopped

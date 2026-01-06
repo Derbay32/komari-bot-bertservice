@@ -17,20 +17,21 @@ from typing import Literal
 from google import genai
 from tqdm import tqdm
 
-# 类型别名（Python 3.13）
+# 类型别名
 type Label = Literal[0, 1, 2]
 type ScoreCategory = Literal["low_value", "normal", "interrupt"]
 type TrainingSample = dict[str, str | int]
 type ChatMessage = dict[str, str]
 
 # Gemini API Prompt 模板
+# 如果你想拿去训练其他模版的机器人，记得把这个改了
 SCORING_PROMPT = """你是一个聊天消息价值评估专家。请根据以下标准对消息进行评分。
 
 ## 评分标准
 
 **Label 0 (low_value)** - 低价值消息:
 - 分数范围: 0.0 - 0.3
-- 特征: 纯表情、简短笑声、无实质内容
+- 特征: 纯表情、简短笑声、无实质内容、简短无价值对话等
 - 示例: "哈哈哈", "233", "笑死我了", "啊啊啊", "www", "😂😂😂"
 
 **Label 1 (normal)** - 正常消息:
@@ -416,7 +417,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         type=str,
-        default="gemini-2.5-flash",
+        default="gemini-2.5-flash-lite",
         dest="model",
         help="Gemini 模型名称",
     )

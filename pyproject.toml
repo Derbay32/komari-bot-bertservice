@@ -31,6 +31,7 @@ dependencies = [
     "structlog (>=25.5.0,<26.0.0)",
     "prometheus-client (>=0.23.1,<0.24.0)",
     "httpx (>=0.28.1,<0.29.0)",
+    "sentry-sdk[fastapi] (>=2.19.2,<3.0.0)",  # Sentry 错误追踪
     "uvloop (>=0.22.1,<0.23.0)",
     "google-genai (>=1.0.0,<2.0.0)",         # Google Gen AI SDK (新版)
     "tqdm (>=4.66.0,<5.0.0)",                # 进度条

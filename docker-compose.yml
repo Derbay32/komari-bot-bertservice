@@ -10,6 +10,8 @@ services:
       - TOKENIZER_PATH=/app/models/tokenizer
       - USE_GPU=false
       - LOG_LEVEL=info
+      # HuggingFace 镜像（可选）
+      - HF_ENDPOINT=${HF_ENDPOINT:-https://hf-mirror.com}
       # Sentry 错误追踪（可选）
       - SENTRY_DSN=${SENTRY_DSN}
       - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
@@ -29,9 +31,3 @@ services:
         reservations:
           cpus: '1'
           memory: 1G
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s

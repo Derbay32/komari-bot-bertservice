@@ -65,3 +65,9 @@ examples/
 group_821560570_20260106_182428.json
 group_msg_processed.json
 training_data.json
+.pytest_cache
+
+# models
+/komari-bot-bertservice/models/tokenizer
+bert_scoring.onnx
+bert_scoring.onnx.data

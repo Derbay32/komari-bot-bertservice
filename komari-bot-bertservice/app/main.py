@@ -326,67 +326,6 @@ add_exception_handlers(app)
 app.include_router(api_router, prefix="/api/v1")
 
 
-# 健康检查
-@app.get("/health", tags=["health"])
-async def health_check() -> dict[str, str | bool | float]:
-    """健康检查端点（包含模型就绪状态验证）
-
-    Returns:
-        包含服务状态和模型就绪状态的字典
-    """
-    model_loaded = hasattr(app.state, "inference_engine")
-    model_ready = False
-
-    if model_loaded:
-        try:
-            # 执行推理测试验证模型可用性
-            import time
-            start = time.time()
-            score, category, confidence = app.state.inference_engine.score(
-                "健康检查测试", "上下文"
-            )
-            inference_time = (time.time() - start) * 1000
-
-            # 验证返回值有效性
-            model_ready = (
-                isinstance(score, float) and
-                0.0 <= score <= 1.0 and
-                category in ["low_value", "normal", "interrupt"] and
-                isinstance(confidence, float) and
-                0.0 <= confidence <= 1.0
-            )
-
-            if model_ready:
-                return {
-                    "status": "healthy",
-                    "model_loaded": True,
-                    "model_ready": True,
-                    "inference_test_passed": True,
-                    "inference_time_ms": round(inference_time, 2),
-                    "version": settings.app_version,
-                }
-        except Exception as e:
-            logger.warning(
-                "health_check_inference_failed",
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-            return {
-                "status": "unhealthy",
-                "model_loaded": True,
-                "model_ready": False,
-                "error": "Model inference test failed",
-                "version": settings.app_version,
-            }
-
-    return {
-        "status": "unhealthy" if model_loaded else "unhealthy",
-        "model_loaded": model_loaded,
-        "model_ready": False,
-        "version": settings.app_version,
-    }
-
-
 # Prometheus 指标
 @app.get("/metrics", tags=["monitoring"])
 async def metrics() -> Response:

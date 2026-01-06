@@ -139,9 +139,6 @@ class ONNXInferenceEngine:
         # 全部图优化
         opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-        # 内存优化：推理后释放模型内存
-        opts.add_run_config_entry("memory.arena_max_strategy", "kSameAsRequested")
-
         # 启用内存优化
         opts.enable_mem_pattern = True
         opts.enable_cpu_mem_arena = True

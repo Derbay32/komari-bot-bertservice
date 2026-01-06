@@ -352,6 +352,7 @@ def train(
         fp16=config.training.fp16,
         logging_steps=config.logging.steps,
         eval_steps=config.logging.eval_steps,
+        eval_strategy="steps",  # 必须与 save_strategy 匹配
         save_strategy=config.output.save_strategy,
         save_steps=config.output.save_steps,
         save_total_limit=config.output.save_total_limit,

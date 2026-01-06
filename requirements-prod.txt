@@ -1,0 +1,37 @@
+# 生产环境依赖
+# 使用 pip 安装：pip install -r requirements-prod.txt
+#
+# 注意：此文件仅包含运行时依赖，不包含训练和开发依赖
+# 开发环境请使用 Poetry 管理依赖
+
+# Web 框架
+fastapi>=0.128.0,<0.129.0
+uvicorn[standard]>=0.40.0,<0.41.0
+uvloop>=0.22.1,<0.23.0
+
+# 数据验证
+pydantic>=2.12.5,<3.0.0
+pyyaml>=6.0.3,<7.0.0
+
+# ONNX 运行时
+# CPU 版本（默认）
+onnxruntime>=1.23.2,<2.0.0
+# 如需 GPU 支持，请替换为：onnxruntime-gpu>=1.23.2,<2.0.0
+
+# Transformers 和分词器
+transformers>=4.57.3,<5.0.0
+tokenizers>=0.22.2,<0.23.0
+optimum[onnx]>=2.1.0,<3.0.0
+
+# 数值计算
+numpy>=2.4.0,<3.0.0
+
+# 日志和监控
+structlog>=25.5.0,<26.0.0
+prometheus-client>=0.23.1,<0.24.0
+
+# HTTP 客户端
+httpx>=0.28.1,<0.29.0
+
+# 环境变量
+python-dotenv>=1.2.1,<2.0.0

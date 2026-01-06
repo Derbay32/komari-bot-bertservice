@@ -1,0 +1,74 @@
+[project]
+name = "komari-bot-bertservice"
+version = "0.1.0"
+description = ""
+authors = [{ name = "derbay32", email = "happy20092010@icloud.com" }]
+license = { text = "MIT License" }
+readme = "README.md"
+requires-python = ">=3.13,<3.15"
+
+# ================================================
+# 依赖管理策略
+# ================================================
+# - Poetry 仅用于开发环境（本地开发、测试、训练）
+# - 生产部署使用 pip + requirements-prod.txt
+# - requirements-prod.txt 包含主依赖（此 [project] 部分）
+# - 训练依赖见 [tool.poetry.group.train.dependencies]
+# ================================================
+
+# 主依赖（运行时）
+# 这些依赖会被导出到 requirements-prod.txt 供生产环境使用
+# 注意：GPU 支持需要将 onnxruntime 替换为 onnxruntime-gpu
+# 如需使用 GPU，请运行：poetry add onnxruntime-gpu --group gpu
+dependencies = [
+    "pydantic (>=2.12.5,<3.0.0)",
+    "onnxruntime (>=1.23.2,<2.0.0)",         # CPU 版本，GPU 需要替换为 onnxruntime-gpu
+    "transformers (>=4.57.3,<5.0.0)",
+    "fastapi (>=0.128.0,<0.129.0)",
+    "uvicorn[standard] (>=0.40.0,<0.41.0)",
+    "optimum[onnxruntime] (>=2.1.0,<3.0.0)",
+    "numpy (>=2.4.0,<3.0.0)",
+    "structlog (>=25.5.0,<26.0.0)",
+    "prometheus-client (>=0.23.1,<0.24.0)",
+    "httpx (>=0.28.1,<0.29.0)",
+    "uvloop (>=0.22.1,<0.23.0)",
+    "google-genai (>=1.0.0,<2.0.0)",         # Google Gen AI SDK (新版)
+    "tqdm (>=4.66.0,<5.0.0)",                # 进度条
+]
+
+# ================================================
+# Poetry Groups - 开发环境专用依赖
+# ================================================
+# 这些依赖仅在使用 Poetry 的开发环境中使用
+# 不会被包含在 requirements-prod.txt 中
+#
+# 可用组：
+# - dev: 开发和测试工具 (pytest, ruff, mypy)
+# - train: 模型训练工具 (torch, datasets, accelerate)
+# - scripts: 实用脚本工具 (huggingface-hub)
+#
+# 安装示例：
+#   poetry install              # 安装所有组
+#   poetry install --with train  # 仅安装主依赖 + train 组
+#   poetry install --only main   # 仅安装主依赖
+# ================================================
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7.4.0"
+pytest-asyncio = ">=0.21.0"
+pytest-cov = ">=4.1.0"
+
+[tool.poetry.group.train.dependencies]
+torch = ">=2.9.0"
+datasets = ">=2.12.0"
+accelerate = ">=0.20.0"
+scikit-learn = ">=1.3.0"
+
+[tool.poetry.group.scripts.dependencies]
+huggingface-hub = ">=0.19.0"
+
+[tool.poetry]
+package-mode = false
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

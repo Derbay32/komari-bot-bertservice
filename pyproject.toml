@@ -18,15 +18,12 @@ requires-python = ">=3.13,<3.15"
 
 # 主依赖（运行时）
 # 这些依赖会被导出到 requirements-prod.txt 供生产环境使用
-# 注意：GPU 支持需要将 onnxruntime 替换为 onnxruntime-gpu
-# 如需使用 GPU，请运行：poetry add onnxruntime-gpu --group gpu
 dependencies = [
     "pydantic (>=2.12.5,<3.0.0)",
-    "onnxruntime (>=1.23.2,<2.0.0)",         # CPU 版本，GPU 需要替换为 onnxruntime-gpu
+    "onnxruntime (>=1.23.2,<2.0.0)",         # CPU 版本
     "transformers (>=4.57.3,<5.0.0)",
     "fastapi (>=0.128.0,<0.129.0)",
     "uvicorn[standard] (>=0.40.0,<0.41.0)",
-    "optimum[onnxruntime] (>=2.1.0,<3.0.0)",
     "numpy (>=2.4.0,<3.0.0)",
     "structlog (>=25.5.0,<26.0.0)",
     "prometheus-client (>=0.23.1,<0.24.0)",

@@ -183,7 +183,7 @@ GET /metrics
 
 - `deployment` - 部署环境标识（来自 `DEPLOYMENT` 环境变量）
 - `instance_id` - 实例唯一标识（来自 `INSTANCE_ID` 环境变量）
-- `provider` - 推理提供者（CPUExecutionProvider 或 CUDAExecutionProvider）
+- `provider` - 推理提供者（CPUExecutionProvider）
 - `error_type` - 错误类型（inference_error、batch_inference_error）
 - `category` - 评分分类（low_value、normal、interrupt）
 
@@ -197,7 +197,6 @@ GET /metrics
 | ---------------- | ------------------------------- | ------------- |
 | `MODEL_PATH`     | `/app/models/bert_scoring.onnx` | ONNX 模型路径 |
 | `TOKENIZER_PATH` | `/app/models/tokenizer`         | 分词器路径    |
-| `USE_GPU`        | `false`                         | 是否使用 GPU  |
 
 ### 监控配置
 

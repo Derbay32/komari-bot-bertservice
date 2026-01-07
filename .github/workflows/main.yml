@@ -13,6 +13,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      # 释放 GitHub Actions 磁盘空间
+      - name: Free Disk Space
+        run: |
+          # 删除 Android SDK（约 2GB）
+          sudo rm -rf /usr/local/lib/android
+
+          # 删除 .NET 库（约 1GB）
+          sudo rm -rf /usr/share/dotnet
+
+          # 删除 Haskell 工具链（约 500MB）
+          sudo rm -rf /opt/ghc
+
+          # 删除 Docker 旧镜像（如果存在）
+          docker system prune -af --volumes || true
+
+          # 删除缓存和临时文件
+          sudo rm -rf /tmp/*
+          sudo rm -rf ~/.cache/*
+          sudo rm -rf /var/cache/apt/archives/*
+
+          # 清理 APT 缓存
+          sudo apt-get clean
+          sudo apt-get autoclean
+          sudo apt-get autoremove -y
+
+          # 显示剩余空间
+          df -h
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 

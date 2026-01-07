@@ -247,7 +247,6 @@ async def lifespan(app: FastAPI):
         app.state.inference_engine = ONNXInferenceEngine(
             model_path=model_path,
             tokenizer_path=tokenizer_path,
-            use_gpu=settings.use_gpu,
             cache_size=settings.cache_size,
             enable_parallel=settings.enable_parallel,
             workers=settings.workers,

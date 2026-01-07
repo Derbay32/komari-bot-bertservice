@@ -56,7 +56,6 @@ class ONNXInferenceEngine:
         self,
         model_path: str | Path,
         tokenizer_path: str | Path,
-        use_gpu: bool = False,
         cache_size: int = 1024,
         enable_parallel: bool = True,
         workers: int = 1,
@@ -67,7 +66,6 @@ class ONNXInferenceEngine:
         Args:
             model_path: ONNX 模型路径
             tokenizer_path: 分词器路径
-            use_gpu: 是否使用 GPU
             cache_size: LRU 缓存大小
             enable_parallel: 是否启用并行执行
             workers: worker 进程数（用于计算线程数）
@@ -84,25 +82,9 @@ class ONNXInferenceEngine:
         else:
             self.num_threads = _calculate_optimal_threads(workers)
 
-        # 配置 ONNX Runtime 提供者
-        if use_gpu:
-            # 验证 CUDA 可用性
-            available_providers = ort.get_available_providers()
-            if "CUDAExecutionProvider" not in available_providers:
-                logger.warning(
-                    "cuda_requested_but_unavailable",
-                    available_providers=available_providers,
-                    message="CUDA 请求但不可用，将使用 CPU",
-                )
-                providers = ["CPUExecutionProvider"]
-                self.provider = "CPUExecutionProvider"
-            else:
-                providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-                self.provider = "CUDAExecutionProvider"
-                logger.info("using_gpu", providers=providers)
-        else:
-            providers = ["CPUExecutionProvider"]
-            self.provider = "CPUExecutionProvider"
+        # 配置 ONNX Runtime 提供者（仅 CPU）
+        providers = ["CPUExecutionProvider"]
+        self.provider = "CPUExecutionProvider"
 
         self.session = ort.InferenceSession(
             self.model_path,

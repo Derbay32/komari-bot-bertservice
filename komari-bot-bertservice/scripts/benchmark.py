@@ -51,7 +51,7 @@ def load_model_and_tokenizer(
         (ONNX session, tokenizer) 元组
     """
     logger = setup_logging()
-    logger.info(f"Loading model from {model_path}")
+    logger.info(f"正在从 {model_path} 加载模型")
 
     # ONNX Runtime session
     session = ort.InferenceSession(
@@ -64,7 +64,7 @@ def load_model_and_tokenizer(
         tokenizer_path = str(Path(model_path).parent / "tokenizer")
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
 
-    logger.info("Model and tokenizer loaded")
+    logger.info("模型和分词器已加载")
 
     return session, tokenizer
 
@@ -164,7 +164,7 @@ def benchmark_latency(
         延迟统计字典
     """
     logger = setup_logging()
-    logger.info("Benchmarking latency...")
+    logger.info("正在测试延迟...")
 
     # 测试消息
     test_messages = ["这是一个测试消息"] * num_requests
@@ -184,7 +184,7 @@ def benchmark_latency(
         latencies.append((end - start) * 1000)  # ms
 
         if (i + 1) % 10 == 0:
-            logger.debug(f"Completed {i + 1}/{num_requests} requests")
+            logger.debug(f"已完成 {i + 1}/{num_requests} 个请求")
 
     return calculate_percentiles(latencies)
 
@@ -209,7 +209,7 @@ def benchmark_throughput(
         吞吐量统计字典
     """
     logger = setup_logging()
-    logger.info(f"Benchmarking throughput (batch_size={batch_size})...")
+    logger.info(f"正在测试吞吐量 (batch_size={batch_size})...")
 
     # 计算批次数
     num_batches = num_requests // batch_size
@@ -264,7 +264,7 @@ def benchmark_cache(
         缓存统计字典
     """
     logger = setup_logging()
-    logger.info("Benchmarking cache effectiveness...")
+    logger.info("正在测试缓存效果...")
 
     # 重复消息和唯一消息
     repeat_ratio = 0.5
@@ -312,7 +312,7 @@ def benchmark_cache(
 def main() -> None:
     """主函数"""
     parser = argparse.ArgumentParser(
-        description="Performance benchmark for ONNX inference",
+        description="ONNX 推理性能基准测试",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -320,49 +320,49 @@ def main() -> None:
         "--model-path",
         type=str,
         default="./models/model.onnx",
-        help="Path to ONNX model",
+        help="ONNX 模型路径",
     )
 
     parser.add_argument(
         "--tokenizer-path",
         type=str,
         default=None,
-        help="Path to tokenizer (default: <model-dir>/tokenizer)",
+        help="分词器路径（默认：<模型目录>/tokenizer）",
     )
 
     parser.add_argument(
         "--batch-size",
         type=int,
         default=1,
-        help="Batch size for throughput test",
+        help="吞吐量测试的批次大小",
     )
 
     parser.add_argument(
         "--num-requests",
         type=int,
         default=100,
-        help="Number of requests for latency test",
+        help="延迟测试的请求数量",
     )
 
     parser.add_argument(
         "--num-warmup",
         type=int,
         default=10,
-        help="Number of warmup requests",
+        help="预热请求数量",
     )
 
     parser.add_argument(
         "--max-length",
         type=int,
         default=128,
-        help="Maximum sequence length",
+        help="最大序列长度",
     )
 
     parser.add_argument(
         "--enable-cache",
         type=lambda x: x.lower() in ("true", "1", "yes"),
         default=True,
-        help="Enable cache benchmark",
+        help="启用缓存测试",
     )
 
     parser.add_argument(
@@ -370,7 +370,7 @@ def main() -> None:
         type=str,
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        help="Logging level",
+        help="日志级别",
     )
 
     args = parser.parse_args()
@@ -411,25 +411,25 @@ def main() -> None:
 
     # 打印结果
     print("\n" + "=" * 50)
-    print("BENCHMARK RESULTS")
+    print("基准测试结果")
     print("=" * 50)
 
-    print("\n### Single Request Latency ###")
+    print("\n### 单请求延迟 ###")
     for key, value in latency_stats.items():
         print(f"  {key}: {value:.2f} ms")
 
-    print("\n### Throughput ###")
-    print(f"  Total time: {throughput_stats['total_time_s']:.2f} s")
-    print(f"  Total requests: {throughput_stats['total_requests']}")
-    print(f"  Requests/sec: {throughput_stats['requests_per_second']:.2f}")
-    print(f"  Batch size: {throughput_stats['batch_size']}")
+    print("\n### 吞吐量 ###")
+    print(f"  总时间: {throughput_stats['total_time_s']:.2f} s")
+    print(f"  总请求数: {throughput_stats['total_requests']}")
+    print(f"  每秒请求数: {throughput_stats['requests_per_second']:.2f}")
+    print(f"  批次大小: {throughput_stats['batch_size']}")
 
     if cache_stats:
-        print("\n### Cache Effectiveness ###")
-        print(f"  Unique requests: {cache_stats['unique_requests']}")
-        print(f"  Repeat requests: {cache_stats['repeat_requests']}")
-        print(f"  Speedup: {cache_stats['speedup']:.2f}x")
-        print(f"  Potential hit rate: {cache_stats['potential_hit_rate']:.1%}")
+        print("\n### 缓存效果 ###")
+        print(f"  唯一请求数: {cache_stats['unique_requests']}")
+        print(f"  重复请求数: {cache_stats['repeat_requests']}")
+        print(f"  加速比: {cache_stats['speedup']:.2f}x")
+        print(f"  潜在命中率: {cache_stats['potential_hit_rate']:.1%}")
 
     print("\n" + "=" * 50)
 

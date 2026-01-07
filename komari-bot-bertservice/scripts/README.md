@@ -18,11 +18,40 @@ poetry install --with scripts
 pip install huggingface-hub google-genai tqdm
 ```
 
+## 环境配置
+
+### HuggingFace 镜像站（中国大陆推荐）
+
+如果使用 `download_model.py` 脚本从 HuggingFace 下载模型，设置镜像站可以加速下载：
+
+```bash
+# 使用 HF-Mirror 镜像
+export HF_ENDPOINT="https://hf-mirror.com"
+
+# 或使用阿里云镜像
+export HF_ENDPOINT="https://huggingface.co.mirror.aliyuncs.com"
+```
+
+**常用镜像地址：**
+- HF-Mirror: `https://hf-mirror.com`
+- 阿里云: `https://huggingface.co.mirror.aliyuncs.com`
+
+### Gemini API Key（数据生成脚本使用）
+
+`generate_training_data.py` 脚本需要 Gemini API 密钥：
+
+```bash
+export GEMINI_API_KEY=your_api_key_here
+```
+
 ## 可用脚本
 
 ### process_chat.py
 
 处理 QQ 群聊天记录导出的 JSON 文件，生成可用于模型训练或推理的数据。
+支持的输入格式为项目 [qq-chat-exporter](https://github.com/shuakami/qq-chat-exporter) 的 json 格式导出文件。
+
+_这玩意不一定能搞得很干净，所以最好你自己审查一遍_
 
 **功能：**
 
@@ -89,9 +118,11 @@ python scripts/process_chat.py chat.json -t 30
 
 使用 Gemini API 对聊天消息进行自动标注，生成用于模型微调的训练数据。
 
+~~没有 Gemini 的话你就自己改改请求的部分~~
+
 **功能：**
 
-- 调用 Gemini 2.5 Flash API 自动标注消息
+- 调用 Gemini 2.5 Flash Lite API 自动标注消息
 - 三分类标签：low_value (0), normal (1), interrupt (2)
 - 支持随机采样、进度跟踪、错误重试
 - 自动验证数据质量
@@ -238,10 +269,10 @@ python scripts/benchmark.py --model-path ./models/model.onnx --batch-size 32 --n
 
 ```
 ==================================================
-BENCHMARK RESULTS
+基准测试结果
 ==================================================
 
-### Single Request Latency ###
+### 单请求延迟 ###
   min: 10.23 ms
   max: 18.45 ms
   mean: 12.50 ms
@@ -252,71 +283,20 @@ BENCHMARK RESULTS
   p99: 16.80 ms
   stdev: 1.85 ms
 
-### Throughput ###
-  Total time: 8.03 s
-  Total requests: 1000
-  Requests/sec: 124.72
-  Batch size: 16
+### 吞吐量 ###
+  总时间: 8.03 s
+  总请求数: 1000
+  每秒请求数: 124.72
+  批次大小: 16
 
-### Cache Effectiveness ###
-  Unique requests: 50
-  Repeat requests: 50
-  Speedup: 8.20x
-  Potential hit rate: 50.0%
+### 缓存效果 ###
+  唯一请求数: 50
+  重复请求数: 50
+  加速比: 8.20x
+  潜在命中率: 50.0%
 
 ==================================================
 ```
-
----
-
-### health_check.py
-
-服务健康检查脚本，支持持续监控模式和 CI/CD 集成。
-
-**用法：**
-
-```bash
-python scripts/health_check.py --base-url http://localhost:8000
-```
-
-**参数：**
-
-| 参数             | 说明                     | 默认值                  |
-| ---------------- | ------------------------ | ----------------------- |
-| `--base-url`     | 服务基础 URL             | `http://localhost:8000` |
-| `--timeout`      | 请求超时（秒）           | `5`                     |
-| `--interval`     | 检查间隔（秒，持续模式） | `10`                    |
-| `--continuous`   | 持续监控模式             | `false`                 |
-| `--max-failures` | 最大失败次数（退出）     | `3`                     |
-| `--check-model`  | 同时检查模型推理端点     | `false`                 |
-| `--verbose`      | 详细输出                 | `false`                 |
-
-**示例：**
-
-```bash
-# 单次检查
-python scripts/health_check.py --base-url http://localhost:8000
-
-# 持续监控
-python scripts/health_check.py --base-url http://localhost:8000 --continuous --interval 30
-
-# CI/CD 集成（失败时非零退出码）
-python scripts/health_check.py --base-url http://localhost:8000 --max-failures 1
-
-# 包含模型推理检查
-python scripts/health_check.py --base-url http://localhost:8000 --check-model
-
-# 详细模式
-python scripts/health_check.py --base-url http://localhost:8000 --verbose
-```
-
-**退出码：**
-
-| 退出码 | 说明                 |
-| ------ | -------------------- |
-| `0`    | 健康检查通过         |
-| `1`    | 健康检查失败         |
-| `2`    | 键盘中断（用户终止） |
 
 ---
 

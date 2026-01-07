@@ -16,6 +16,14 @@ from threading import Lock
 import numpy as np
 import onnxruntime as ort
 
+from app.middleware.metrics import (
+    cache_hits,
+    cache_misses,
+    inference_errors,
+)
+from app.middleware.metrics import (
+    cache_size as cache_size_metric,
+)
 from app.services.tokenizer import TokenizerWrapper
 from app.utils.logger import logger
 
@@ -87,11 +95,14 @@ class ONNXInferenceEngine:
                     message="CUDA 请求但不可用，将使用 CPU",
                 )
                 providers = ["CPUExecutionProvider"]
+                self.provider = "CPUExecutionProvider"
             else:
                 providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+                self.provider = "CUDAExecutionProvider"
                 logger.info("using_gpu", providers=providers)
         else:
             providers = ["CPUExecutionProvider"]
+            self.provider = "CPUExecutionProvider"
 
         self.session = ort.InferenceSession(
             self.model_path,
@@ -111,12 +122,16 @@ class ONNXInferenceEngine:
         # 预热
         self._warmup()
 
+        # 初始化缓存大小指标
+        cache_size_metric.set(0)
+
         logger.info(
             "inference_engine_initialized",
             model_path=self.model_path,
             num_threads=self.num_threads,
-            cache_size=cache_size,
+            cache_size=self.cache_size,
             parallel=enable_parallel,
+            provider=self.provider,
         )
 
     def _create_session_options(self) -> ort.SessionOptions:
@@ -170,7 +185,11 @@ class ONNXInferenceEngine:
             if cache_key in self._cache:
                 # LRU: 移到末尾
                 self._cache.move_to_end(cache_key)
+                # 记录缓存命中
+                cache_hits.inc()
                 return self._cache[cache_key]
+        # 记录缓存未命中
+        cache_misses.inc()
         return None
 
     def _add_to_cache(self, cache_key: str, result: ScoreResult) -> None:
@@ -185,6 +204,8 @@ class ONNXInferenceEngine:
             # LRU: 超过容量时删除最旧的
             if len(self._cache) > self.cache_size:
                 self._cache.popitem(last=False)
+            # 更新缓存大小指标
+            cache_size_metric.set(len(self._cache))
 
     def _warmup(self) -> None:
         """预热模型（第一次推理较慢）"""
@@ -211,13 +232,20 @@ class ONNXInferenceEngine:
         inputs = self.tokenizer.encode(input_text)
 
         # 推理
-        outputs = self.session.run(
-            [self.output_name],
-            {
-                self.input_name: inputs["input_ids"],
-                self.attention_mask_name: inputs["attention_mask"],
-            },
-        )  # type: ignore[assignment]
+        try:
+            outputs = self.session.run(
+                [self.output_name],
+                {
+                    self.input_name: inputs["input_ids"],
+                    self.attention_mask_name: inputs["attention_mask"],
+                },
+            )  # type: ignore[assignment]
+        except Exception:
+            # 记录推理错误
+            inference_errors.labels(
+                error_type="inference_error", provider=self.provider
+            ).inc()
+            raise
 
         # 处理输出（ONNX Runtime 已返回 numpy 数组）
         logits = outputs[0][0]  # type: ignore[index]  # [num_classes]
@@ -310,13 +338,20 @@ class ONNXInferenceEngine:
         batch_attention_mask = encoded_batch["attention_mask"]
 
         # 批量推理
-        outputs = self.session.run(
-            [self.output_name],
-            {
-                self.input_name: batch_input_ids,
-                self.attention_mask_name: batch_attention_mask,
-            },
-        )  # type: ignore[assignment]
+        try:
+            outputs = self.session.run(
+                [self.output_name],
+                {
+                    self.input_name: batch_input_ids,
+                    self.attention_mask_name: batch_attention_mask,
+                },
+            )  # type: ignore[assignment]
+        except Exception:
+            # 记录推理错误
+            inference_errors.labels(
+                error_type="batch_inference_error", provider=self.provider
+            ).inc()
+            raise
 
         # 处理批量输出（ONNX Runtime 已返回 numpy 数组）
         batch_logits = outputs[0]  # type: ignore[index]  # [batch_size, num_classes]

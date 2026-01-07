@@ -49,7 +49,7 @@ def download_model(
         模型目录路径
     """
     logger = setup_logging()
-    logger.info(f"Downloading model: {model_name}")
+    logger.info(f"正在下载模型: {model_name}")
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -62,24 +62,24 @@ def download_model(
         token=token,
     )
 
-    logger.info(f"Model downloaded to: {model_dir}")
+    logger.info(f"模型已下载到: {model_dir}")
 
     # 验证下载
-    logger.info("Verifying download...")
+    logger.info("正在验证下载...")
     try:
         # 验证配置文件
         config = AutoConfig.from_pretrained(model_dir)
         num_labels = len(config.id2label) if config.id2label is not None else config.num_labels
-        logger.info(f"Model config: {config.model_type}, {num_labels} labels")
+        logger.info(f"模型配置: {config.model_type}, {num_labels} 个标签")
 
         # 验证分词器
         tokenizer = AutoTokenizer.from_pretrained(model_dir)
-        logger.info(f"Tokenizer vocab size: {tokenizer.vocab_size}")
+        logger.info(f"分词器词汇量: {tokenizer.vocab_size}")
 
-        logger.info("Verification complete!")
+        logger.info("验证完成！")
 
     except Exception as e:
-        logger.error(f"Verification failed: {e}")
+        logger.error(f"验证失败: {e}")
         sys.exit(1)
 
     return Path(model_dir)
@@ -92,7 +92,7 @@ def list_files(directory: Path) -> None:
         directory: 目录路径
     """
     logger = setup_logging()
-    logger.info(f"Contents of {directory}:")
+    logger.info(f"{directory} 的内容:")
 
     for file in sorted(directory.rglob("*")):
         if file.is_file():
@@ -112,7 +112,7 @@ def parse_args() -> argparse.Namespace:
         解析后的参数
     """
     parser = argparse.ArgumentParser(
-        description="Download pre-trained model from HuggingFace",
+        description="从 HuggingFace 下载预训练模型",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -120,27 +120,27 @@ def parse_args() -> argparse.Namespace:
         "--model-name",
         type=str,
         default="hfl/chinese-bert-wwm-ext",
-        help="HuggingFace model name or ID",
+        help="HuggingFace 模型名称或 ID",
     )
 
     parser.add_argument(
         "--output-dir",
         type=str,
         default="./models",
-        help="Output directory for model files",
+        help="模型文件输出目录",
     )
 
     parser.add_argument(
         "--token",
         type=str,
         default=None,
-        help="HuggingFace access token (for private models)",
+        help="HuggingFace 访问令牌（用于私有模型）",
     )
 
     parser.add_argument(
         "--list",
         action="store_true",
-        help="List downloaded files",
+        help="列出下载的文件",
     )
 
     parser.add_argument(
@@ -148,7 +148,7 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        help="Logging level",
+        help="日志级别",
     )
 
     return parser.parse_args()

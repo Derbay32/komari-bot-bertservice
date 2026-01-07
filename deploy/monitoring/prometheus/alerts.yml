@@ -1,0 +1,64 @@
+groups:
+  - name: bert_scoring_alerts
+    interval: 30s
+    rules:
+      # High error rate
+      - alert: HighErrorRate
+        expr: |
+          rate(bert_scoring_requests_total{status=~"5.."}[5m]) /
+          rate(bert_scoring_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: bert-scoring
+        annotations:
+          summary: "高错误率检测到"
+          description: "错误率是 {{ $value | humanizePercentage }} for endpoint {{ $labels.endpoint }}"
+
+      # Service down
+      - alert: ServiceDown
+        expr: up{job="bert-scoring"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: bert-scoring
+        annotations:
+          summary: "BERT 评分服务宕机"
+          description: "Service has been down for more than 1 minute"
+
+      # High latency
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(bert_scoring_request_duration_seconds_bucket[5m])
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          service: bert-scoring
+        annotations:
+          summary: "高请求延迟检测到"
+          description: "P95 latency is {{ $value }}s for endpoint {{ $labels.endpoint }}"
+
+      # Low cache hit ratio
+      - alert: LowCacheHitRatio
+        expr: bert_scoring_cache_hit_ratio < 0.3
+        for: 10m
+        labels:
+          severity: info
+          service: bert-scoring
+        annotations:
+          summary: "低缓存命中率"
+          description: "Cache hit ratio is {{ $value | humanizePercentage }}"
+
+      # Model inference errors
+      - alert: HighInferenceErrorRate
+        expr: |
+          rate(bert_scoring_inference_errors_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          service: bert-scoring
+        annotations:
+          summary: "高推理错误率"
+          description: "Inference error rate is {{ $value }}/s for {{ $labels.error_type }}"

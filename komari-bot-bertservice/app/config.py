@@ -71,6 +71,10 @@ class Settings:
     heartbeat_url: str | None = os.getenv("HEARTBEAT_URL")
     heartbeat_interval: int = int(os.getenv("HEARTBEAT_INTERVAL", "30"))
 
+    # 监控配置
+    deployment: str = os.getenv("DEPLOYMENT", "production")
+    instance_id: str = os.getenv("INSTANCE_ID", "bert-1")
+
     @property
     def sentry_enabled(self) -> bool:
         """检查 Sentry 是否启用

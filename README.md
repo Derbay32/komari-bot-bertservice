@@ -53,21 +53,9 @@ poetry run ruff check .
 poetry run ruff format .
 ```
 
-### 生产环境（使用 pip）
+### 使用 Docker（本地开发）
 
-生产部署使用 pip 和 `requirements-prod.txt`（仅包含运行时依赖）：
-
-```bash
-# 安装依赖
-pip install -r requirements-prod.txt
-
-# 启动服务
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-### 使用 Docker
-
-Docker 使用 pip 和 `requirements-prod.txt` 安装依赖：
+本地开发使用 Docker Compose：
 
 ```bash
 # 构建并启动
@@ -80,23 +68,36 @@ docker-compose logs -f
 docker-compose down
 ```
 
-## API 端点
+### 部署方法
 
-### 健康检查
+生产环境推荐使用官方 Docker 镜像，无需克隆整个项目仓库。详细部署步骤请参阅 [生产部署指南](deploy/README.md)。
+
+快速开始：
 
 ```bash
-GET /health
+# 1. 下载最新部署包
+wget https://github.com/derbay32/komari-bot/releases/latest/download/bert-scoring-deploy-*.tar.gz
+
+# 2. 解压
+tar xzf bert-scoring-deploy-*.tar.gz
+
+# 3. 准备模型文件到 models/ 目录
+
+# 4. 配置环境变量
+cp .env.example .env.prod
+# 编辑 .env.prod，修改必要配置
+
+# 5. 启动服务
+docker-compose up -d
 ```
 
-响应：
+生产环境包含完整的监控栈：
 
-```json
-{
-  "status": "healthy",
-  "model_loaded": true,
-  "version": "1.0.0"
-}
-```
+- **Prometheus** - 指标采集和存储（端口 9090）
+- **Grafana** - 可视化监控面板（端口 3000）
+- **AlertManager** - 告警管理（端口 9093）
+
+## API 端点
 
 ### 单条评分
 
@@ -167,25 +168,51 @@ GET /metrics
 
 返回 Prometheus 格式的监控指标。
 
+**主要指标：**
+
+- `inference_requests_total` - 推理请求总数（按 endpoint、status、method 标签分类）
+- `inference_duration_seconds` - 推理耗时（按 deployment、instance_id 标签分类）
+- `cache_hits` / `cache_misses` - 缓存命中/未命中次数
+- `cache_hit_ratio` - 缓存命中率
+- `active_requests` - 当前活跃请求数
+- `inference_errors_total` - 推理错误总数（按 error_type、provider 标签分类）
+- `model_load_duration_seconds` - 模型加载耗时
+- `score_distribution` - 评分分布（按 category 标签分类）
+
+**标签说明：**
+
+- `deployment` - 部署环境标识（来自 `DEPLOYMENT` 环境变量）
+- `instance_id` - 实例唯一标识（来自 `INSTANCE_ID` 环境变量）
+- `provider` - 推理提供者（CPUExecutionProvider 或 CUDAExecutionProvider）
+- `error_type` - 错误类型（inference_error、batch_inference_error）
+- `category` - 评分分类（low_value、normal、interrupt）
+
 ## 配置
 
 通过环境变量配置：
 
 ### 模型配置
 
-| 变量             | 默认值                          | 说明            |
-| ---------------- | ------------------------------- | --------------- |
-| `MODEL_PATH`     | `models/tiny_bert_scoring.onnx` | ONNX 模型路径   |
-| `TOKENIZER_PATH` | `models/tokenizer`              | 分词器路径      |
-| `USE_GPU`        | `false`                         | 是否使用 GPU    |
+| 变量             | 默认值                          | 说明          |
+| ---------------- | ------------------------------- | ------------- |
+| `MODEL_PATH`     | `/app/models/bert_scoring.onnx` | ONNX 模型路径 |
+| `TOKENIZER_PATH` | `/app/models/tokenizer`         | 分词器路径    |
+| `USE_GPU`        | `false`                         | 是否使用 GPU  |
+
+### 监控配置
+
+| 变量          | 默认值       | 说明         |
+| ------------- | ------------ | ------------ |
+| `DEPLOYMENT`  | `production` | 部署环境标识 |
+| `INSTANCE_ID` | `bert-1`     | 实例唯一标识 |
 
 ### 推理配置
 
-| 变量                  | 默认值  | 说明           |
-| --------------------- | ------- | -------------- |
-| `CACHE_SIZE`          | `1024`  | LRU 缓存大小   |
-| `ENABLE_PARALLEL`     | `true`  | 是否并行推理   |
-| `MAX_BATCH_SIZE`      | `50`    | 最大批处理大小 |
+| 变量              | 默认值 | 说明           |
+| ----------------- | ------ | -------------- |
+| `CACHE_SIZE`      | `1024` | LRU 缓存大小   |
+| `ENABLE_PARALLEL` | `true` | 是否并行推理   |
+| `MAX_BATCH_SIZE`  | `50`   | 最大批处理大小 |
 
 ### API 配置
 
@@ -202,15 +229,18 @@ GET /metrics
 | ----------- | ------ | -------- |
 | `LOG_LEVEL` | `INFO` | 日志级别 |
 
-### HuggingFace 镜像（可选）
+### HuggingFace 镜像（仅模型下载/训练时使用）
 
-使用 HuggingFace 镜像加速模型下载（中国大陆地区推荐）：
+**注意**：此配置仅在下载预训练模型或训练时使用。生产环境通过 volume 挂载模型文件，不需要此配置。
 
-| 变量           | 默认值                  | 说明                    |
-| -------------- | ----------------------- | ----------------------- |
-| `HF_ENDPOINT`  | `https://hf-mirror.com` | HuggingFace 镜像端点    |
+使用 HuggingFace 镜像加速模型下载：
+
+| 变量          | 默认值                  | 说明                 |
+| ------------- | ----------------------- | -------------------- |
+| `HF_ENDPOINT` | `https://hf-mirror.com` | HuggingFace 镜像端点 |
 
 **示例：**
+
 ```bash
 # 使用 hf-mirror 镜像
 export HF_ENDPOINT="https://hf-mirror.com"
@@ -220,6 +250,7 @@ export HF_ENDPOINT="https://huggingface.co.mirror.aliyuncs.com"
 ```
 
 **常用镜像地址：**
+
 - HF-Mirror: `https://hf-mirror.com`
 - 阿里云: `https://huggingface.co.mirror.aliyuncs.com`
 
@@ -227,14 +258,15 @@ export HF_ENDPOINT="https://huggingface.co.mirror.aliyuncs.com"
 
 启用 Sentry/Glitchtip 错误追踪：
 
-| 变量                        | 默认值    | 说明                          |
-| --------------------------- | --------- | ----------------------------- |
-| `SENTRY_DSN`                | (空)      | Sentry DSN（必须设置才能启用）|
-| `SENTRY_ENVIRONMENT`        | 自动检测  | 环境名称（production/development）|
-| `SENTRY_TRACES_SAMPLE_RATE` | `0.1`     | 性能追踪采样率（0.0-1.0）     |
-| `SENTRY_PROFILES_SAMPLE_RATE` | `0.0`   | 性能分析采样率（0.0-1.0）     |
+| 变量                          | 默认值   | 说明                               |
+| ----------------------------- | -------- | ---------------------------------- |
+| `SENTRY_DSN`                  | (空)     | Sentry DSN（必须设置才能启用）     |
+| `SENTRY_ENVIRONMENT`          | 自动检测 | 环境名称（production/development） |
+| `SENTRY_TRACES_SAMPLE_RATE`   | `0.1`    | 性能追踪采样率（0.0-1.0）          |
+| `SENTRY_PROFILES_SAMPLE_RATE` | `0.0`    | 性能分析采样率（0.0-1.0）          |
 
 **示例：**
+
 ```bash
 # 启用 Sentry 错误追踪和性能监控
 export SENTRY_DSN="https://your-dsn@sentry.io/project-id"
@@ -246,12 +278,13 @@ export SENTRY_TRACES_SAMPLE_RATE="0.1"
 
 启用 Glitchtip 心跳监控：
 
-| 变量                 | 默认值 | 说明                    |
-| -------------------- | ------ | ----------------------- |
-| `HEARTBEAT_URL`      | (空)   | 心跳端点 URL            |
-| `HEARTBEAT_INTERVAL` | `30`   | 心跳间隔（秒）          |
+| 变量                 | 默认值 | 说明           |
+| -------------------- | ------ | -------------- |
+| `HEARTBEAT_URL`      | (空)   | 心跳端点 URL   |
+| `HEARTBEAT_INTERVAL` | `30`   | 心跳间隔（秒） |
 
 **示例：**
+
 ```bash
 # 启用每 30 秒的心跳监控
 export HEARTBEAT_URL="https://heartbeat.glitchtip.com/bproject-id/uuid"
@@ -282,4 +315,4 @@ poetry run mypy app/
 
 ## 许可证
 
-MIT License
+本项目遵循 MIT 许可证。

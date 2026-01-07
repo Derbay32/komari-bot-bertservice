@@ -13,15 +13,11 @@ uvloop>=0.22.1,<0.23.0
 pydantic>=2.12.5,<3.0.0
 pyyaml>=6.0.3,<7.0.0
 
-# ONNX 运行时
-# CPU 版本（默认）
+# ONNX 运行时（仅 CPU 版本）
 onnxruntime>=1.23.2,<2.0.0
-# 如需 GPU 支持，请替换为：onnxruntime-gpu>=1.23.2,<2.0.0
 
-# Transformers 和分词器
+# Transformers（推理时不需要 optimum）
 transformers>=4.57.3,<5.0.0
-tokenizers>=0.22.2,<0.23.0
-optimum[onnx]>=2.1.0,<3.0.0
 
 # 数值计算
 numpy>=2.4.0,<3.0.0

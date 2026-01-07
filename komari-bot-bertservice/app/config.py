@@ -17,7 +17,7 @@ class Settings:
     """
 
     # 模型配置
-    model_path: str = os.getenv("MODEL_PATH", "models/tiny_bert_scoring.onnx")
+    model_path: str = os.getenv("MODEL_PATH", "models/bert_scoring.onnx")
     tokenizer_path: str = os.getenv("TOKENIZER_PATH", "models/tokenizer")
     use_gpu: bool = os.getenv("USE_GPU", "false").lower() == "true"
 

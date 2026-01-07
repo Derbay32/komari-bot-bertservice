@@ -53,6 +53,7 @@ Thumbs.db
 .env
 .env.local
 .env.prod
+.env.dev
 
 # claude code files
 Project NEON-TAVERN-BERT-Service.md

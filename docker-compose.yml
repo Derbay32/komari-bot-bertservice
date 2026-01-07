@@ -2,27 +2,16 @@ version: '3.8'
 
 services:
   bert-scoring:
-    build: .
+    image: derbay32/komari-bot-bertservices:latest
     ports:
       - "8000:8000"
-    environment:
-      - MODEL_PATH=/app/models/tiny_bert_scoring.onnx
-      - TOKENIZER_PATH=/app/models/tokenizer
-      - USE_GPU=false
-      - LOG_LEVEL=info
-      # HuggingFace 镜像（可选）
-      - HF_ENDPOINT=${HF_ENDPOINT:-https://hf-mirror.com}
-      # Sentry 错误追踪（可选）
-      - SENTRY_DSN=${SENTRY_DSN}
-      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
-      - SENTRY_TRACES_SAMPLE_RATE=${SENTRY_TRACES_SAMPLE_RATE:-0.1}
-      - SENTRY_PROFILES_SAMPLE_RATE=${SENTRY_PROFILES_SAMPLE_RATE:-0.0}
-      # 心跳监控（可选）
-      - HEARTBEAT_URL=${HEARTBEAT_URL}
-      - HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL:-30}
+    env_file:
+      - .env.prod
     volumes:
       - ./models:/app/models:ro
     restart: unless-stopped
+    networks:
+      - monitoring
     deploy:
       resources:
         limits:
@@ -31,3 +20,55 @@ services:
         reservations:
           cpus: '1'
           memory: 1G
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: bert-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./data/prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: bert-grafana
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.prod
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./data/grafana-data:/var/lib/grafana
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # AlertManager
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: bert-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./data/alertmanager-data:/alertmanager
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge

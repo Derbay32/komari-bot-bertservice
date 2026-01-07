@@ -88,8 +88,8 @@ class GeminiLabeler:
         self.api_key = api_key or os.getenv("GEMINI_API_KEY", "")
         if not self.api_key:
             raise ValueError(
-                "GEMINI_API_KEY not configured. "
-                "Please set the GEMINI_API_KEY environment variable or provide it via --api-key."
+                "未配置 GEMINI_API_KEY。"
+                "请设置 GEMINI_API_KEY 环境变量或通过 --api-key 参数提供。"
             )
 
         self.model = model
@@ -125,7 +125,7 @@ class GeminiLabeler:
                 # 解析响应
                 text = response.text
                 if text is None:
-                    raise ValueError("Gemini returned None response")
+                    raise ValueError("Gemini 返回空响应")
 
                 label_text = text.strip()
                 label = int(label_text)
@@ -148,7 +148,7 @@ class GeminiLabeler:
                     time.sleep(self.retry_delay)
                 else:
                     raise RuntimeError(
-                        f"Gemini API failed after {self.retry_attempts} attempts: {e}"
+                        f"Gemini API 在 {self.retry_attempts} 次尝试后失败: {e}"
                     )
 
         # Unreachable - always raises above on last attempt

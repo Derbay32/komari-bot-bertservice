@@ -42,7 +42,9 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # 复制应用代码
 COPY --chown=appuser:appuser komari-bot-bertservice/app ./app
-COPY --chown=appuser:appuser komari-bot-bertservice/models ./models
+
+# 创建模型目录（但不复制模型文件，由生产环境通过 volume 挂载）
+RUN mkdir -p /app/models && chown -R appuser:appuser /app
 
 # 创建日志目录
 RUN mkdir -p /app/logs && chown -R appuser:appuser /app

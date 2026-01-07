@@ -17,7 +17,7 @@ class Settings:
     """
 
     # 模型配置
-    model_path: str = os.getenv("MODEL_PATH", "models/tiny_bert_scoring.onnx")
+    model_path: str = os.getenv("MODEL_PATH", "models/bert_scoring.onnx")
     tokenizer_path: str = os.getenv("TOKENIZER_PATH", "models/tokenizer")
     use_gpu: bool = os.getenv("USE_GPU", "false").lower() == "true"
 
@@ -70,6 +70,10 @@ class Settings:
     # 心跳监控配置
     heartbeat_url: str | None = os.getenv("HEARTBEAT_URL")
     heartbeat_interval: int = int(os.getenv("HEARTBEAT_INTERVAL", "30"))
+
+    # 监控配置
+    deployment: str = os.getenv("DEPLOYMENT", "production")
+    instance_id: str = os.getenv("INSTANCE_ID", "bert-1")
 
     @property
     def sentry_enabled(self) -> bool:

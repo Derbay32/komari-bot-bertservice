@@ -1,14 +1,21 @@
 """API v1 端点实现"""
 
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.config import settings
 from app.middleware.metrics import (
+    active_requests as active_requests_metric,
+)
+from app.middleware.metrics import (
     batch_size,
-    cache_size,
+    cache_hit_ratio,
+    cache_hits,
+    cache_misses,
     inference_duration,
+    score_distribution,
 )
 from app.middleware.rate_limit import check_rate_limit_middleware
 from app.models.schemas import (
@@ -21,6 +28,20 @@ from app.services.inference_engine import ONNXInferenceEngine
 from app.utils.logger import logger
 
 router = APIRouter()
+
+
+@asynccontextmanager
+async def track_active_requests(endpoint: str):
+    """追踪活跃请求数的上下文管理器
+
+    Args:
+        endpoint: 端点名称
+    """
+    active_requests_metric.labels(endpoint=endpoint).inc()
+    try:
+        yield
+    finally:
+        active_requests_metric.labels(endpoint=endpoint).dec()
 
 
 def get_inference_engine(request: Request) -> ONNXInferenceEngine:
@@ -77,43 +98,51 @@ async def score_message(
     Returns:
         评分响应
     """
-    start_time = time.time()
+    async with track_active_requests("/api/v1/score"):
+        start_time = time.time()
 
-    try:
-        # 调用推理引擎
-        with inference_duration.labels(method="single").time():
-            score, category, confidence = engine.score(
-                request.message,
-                request.context or "",
+        try:
+            # 调用推理引擎
+            provider = engine.provider
+            with inference_duration.labels(method="single", provider=provider).time():
+                score, category, confidence = engine.score(
+                    request.message,
+                    request.context or "",
+                )
+
+            processing_time = (time.time() - start_time) * 1000  # ms
+
+            # 记录评分分布
+            score_distribution.labels(category=category).observe(score)
+
+            # 计算并更新缓存命中率
+            total_requests = cache_hits._value.get() + cache_misses._value.get()
+            if total_requests > 0:
+                hit_ratio = cache_hits._value.get() / total_requests
+                cache_hit_ratio.set(hit_ratio)
+
+            # 记录日志
+            logger.info(
+                "message_scored",
+                message_length=len(request.message),
+                score=score,
+                category=category,
+                confidence=confidence,
+                processing_time_ms=processing_time,
+                user_id=request.user_id,
+                group_id=request.group_id,
             )
 
-        processing_time = (time.time() - start_time) * 1000  # ms
+            return ScoreResponse(
+                score=score,
+                category=category,  # type: ignore[arg-type]
+                confidence=confidence,
+                processing_time_ms=processing_time,
+            )
 
-        # 记录日志
-        logger.info(
-            "message_scored",
-            message_length=len(request.message),
-            score=score,
-            category=category,
-            confidence=confidence,
-            processing_time_ms=processing_time,
-            user_id=request.user_id,
-            group_id=request.group_id,
-        )
-
-        # 更新缓存指标
-        cache_size.set(len(engine._cache))
-
-        return ScoreResponse(
-            score=score,
-            category=category,  # type: ignore[arg-type]
-            confidence=confidence,
-            processing_time_ms=processing_time,
-        )
-
-    except Exception as e:
-        logger.error("scoring_error", error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        except Exception as e:
+            logger.error("scoring_error", error=str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/score/batch", response_model=BatchScoreResponse)
@@ -153,61 +182,70 @@ async def score_messages_batch(
     Returns:
         批量评分响应
     """
-    # 验证批量大小
-    if len(request.messages) > settings.max_batch_size:
-        raise HTTPException(
-            status_code=413,
-            detail={
-                "error": "batch_size_exceeded",
-                "message": f"Batch size {len(request.messages)} exceeds maximum {settings.max_batch_size}",
-                "max_batch_size": settings.max_batch_size,
-            },
-        )
-
-    start_time = time.time()
-
-    # 记录批量大小
-    batch_size.observe(len(request.messages))
-
-    try:
-        # 批量推理
-        with inference_duration.labels(method="batch").time():
-            results = engine.score_batch(
-                [
-                    {"message": msg.message, "context": msg.context or ""}
-                    for msg in request.messages
-                ]
+    async with track_active_requests("/api/v1/score/batch"):
+        # 验证批量大小
+        if len(request.messages) > settings.max_batch_size:
+            raise HTTPException(
+                status_code=413,
+                detail={
+                    "error": "batch_size_exceeded",
+                    "message": f"Batch size {len(request.messages)} exceeds maximum {settings.max_batch_size}",
+                    "max_batch_size": settings.max_batch_size,
+                },
             )
 
-        total_time = (time.time() - start_time) * 1000  # ms
+        start_time = time.time()
 
-        # 构建响应
-        response_results = []
-        for (score, category, confidence), original in zip(results, request.messages):
-            response_results.append(
-                ScoreResponse(
-                    score=score,
-                    category=category,  # type: ignore[arg-type]
-                    confidence=confidence,
-                    processing_time_ms=0,  # 批量模式不记录单项时间
+        # 记录批量大小
+        batch_size.observe(len(request.messages))
+
+        try:
+            # 批量推理
+            provider = engine.provider
+            with inference_duration.labels(method="batch", provider=provider).time():
+                results = engine.score_batch(
+                    [
+                        {"message": msg.message, "context": msg.context or ""}
+                        for msg in request.messages
+                    ]
                 )
+
+            total_time = (time.time() - start_time) * 1000  # ms
+
+            # 构建响应并记录评分分布
+            response_results = []
+            for (score, category, confidence), original in zip(
+                results, request.messages
+            ):
+                # 记录评分分布
+                score_distribution.labels(category=category).observe(score)
+                response_results.append(
+                    ScoreResponse(
+                        score=score,
+                        category=category,  # type: ignore[arg-type]
+                        confidence=confidence,
+                        processing_time_ms=0,  # 批量模式不记录单项时间
+                    )
+                )
+
+            # 计算并更新缓存命中率
+            total_cache_requests = cache_hits._value.get() + cache_misses._value.get()
+            if total_cache_requests > 0:
+                hit_ratio = cache_hits._value.get() / total_cache_requests
+                cache_hit_ratio.set(hit_ratio)
+
+            # 记录日志
+            logger.info(
+                "batch_scored",
+                batch_size=len(request.messages),
+                total_processing_time_ms=total_time,
             )
 
-        # 记录日志
-        logger.info(
-            "batch_scored",
-            batch_size=len(request.messages),
-            total_processing_time_ms=total_time,
-        )
+            return BatchScoreResponse(
+                results=response_results,
+                total_processing_time_ms=total_time,
+            )
 
-        # 更新缓存指标
-        cache_size.set(len(engine._cache))
-
-        return BatchScoreResponse(
-            results=response_results,
-            total_processing_time_ms=total_time,
-        )
-
-    except Exception as e:
-        logger.error("batch_scoring_error", error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        except Exception as e:
+            logger.error("batch_scoring_error", error=str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))

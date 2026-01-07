@@ -52,7 +52,7 @@ def export_to_onnx(
         opset_version: ONNX opset 版本
     """
     logger = setup_logging()
-    logger.info(f"Loading model from {model_path}")
+    logger.info(f"正在从 {model_path} 加载模型")
 
     # 加载模型和 tokenizer
     model = AutoModelForSequenceClassification.from_pretrained(model_path)
@@ -69,7 +69,7 @@ def export_to_onnx(
         return_tensors="pt",
     )
 
-    logger.info(f"Exporting to ONNX (opset {opset_version})...")
+    logger.info(f"正在导出为 ONNX 格式 (opset {opset_version})...")
 
     # 导出
     output_file = Path(output_path)
@@ -92,7 +92,7 @@ def export_to_onnx(
         },
     )
 
-    logger.info(f"Model exported to {output_path}")
+    logger.info(f"模型已导出到 {output_path}")
 
     # 保存 tokenizer 和配置
     tokenizer_dir = output_file.parent / "tokenizer"
@@ -104,7 +104,7 @@ def export_to_onnx(
     config = AutoConfig.from_pretrained(model_path)
     config.save_pretrained(str(tokenizer_dir))
 
-    logger.info(f"Tokenizer and config saved to {tokenizer_dir}")
+    logger.info(f"分词器和配置已保存到 {tokenizer_dir}")
 
 
 def validate_onnx_model(
@@ -121,7 +121,7 @@ def validate_onnx_model(
         验证是否通过
     """
     logger = setup_logging()
-    logger.info(f"Validating ONNX model: {onnx_path}")
+    logger.info(f"正在验证 ONNX 模型: {onnx_path}")
 
     try:
         # 加载 ONNX 模型
@@ -129,15 +129,15 @@ def validate_onnx_model(
 
         # 检查模型
         onnx.checker.check_model(model)
-        logger.info("ONNX model check passed")
+        logger.info("ONNX 模型检查通过")
 
         # 获取输入输出信息
         graph = model.graph
-        logger.info(f"Inputs: {[i.name for i in graph.input]}")
-        logger.info(f"Outputs: {[o.name for o in graph.output]}")
+        logger.info(f"输入: {[i.name for i in graph.input]}")
+        logger.info(f"输出: {[o.name for o in graph.output]}")
 
         # 使用 ONNX Runtime 测试推理
-        logger.info("Testing ONNX Runtime inference...")
+        logger.info("正在测试 ONNX Runtime 推理...")
 
         # 创建推理 session
         sess_options = ort.SessionOptions()
@@ -171,13 +171,13 @@ def validate_onnx_model(
 
         # 显式转换输出为 numpy 数组
         result = np.asarray(outputs[0])
-        logger.info(f"Output shape: {result.shape}")
-        logger.info(f"Output: {result}")
+        logger.info(f"输出形状: {result.shape}")
+        logger.info(f"输出: {result}")
 
         return True
 
     except Exception as e:
-        logger.error(f"Validation failed: {e}")
+        logger.error(f"验证失败: {e}")
         return False
 
 
@@ -195,7 +195,7 @@ def optimize_onnx_model(
         优化后的模型路径
     """
     logger = setup_logging()
-    logger.info(f"Optimizing ONNX model: {onnx_path}")
+    logger.info(f"正在优化 ONNX 模型: {onnx_path}")
 
     from onnxruntime.transformers import optimizer
 
@@ -213,7 +213,7 @@ def optimize_onnx_model(
 
     optimized_model.save_model_to_file(optimized_path)
 
-    logger.info(f"Optimized model saved to {optimized_path}")
+    logger.info(f"优化后的模型已保存到 {optimized_path}")
 
     return optimized_path
 
@@ -236,7 +236,7 @@ def compare_models(
         输出是否一致
     """
     logger = setup_logging()
-    logger.info("Comparing PyTorch and ONNX outputs...")
+    logger.info("正在比较 PyTorch 和 ONNX 输出...")
 
     import numpy as np
 
@@ -260,7 +260,7 @@ def compare_models(
         torch_outputs = torch_model(**inputs)
         torch_logits = torch_outputs.logits.cpu().numpy()
 
-    logger.info(f"PyTorch output: {torch_logits}")
+    logger.info(f"PyTorch 输出: {torch_logits}")
 
     # ONNX 推理
     session = ort.InferenceSession(
@@ -277,17 +277,17 @@ def compare_models(
     )
     onnx_logits = onnx_outputs[0]
 
-    logger.info(f"ONNX output: {onnx_logits}")
+    logger.info(f"ONNX 输出: {onnx_logits}")
 
     # 比较
     diff = np.abs(torch_logits - onnx_logits).max()
-    logger.info(f"Max difference: {diff}")
+    logger.info(f"最大差异: {diff}")
 
     if diff < tolerance:
-        logger.info("Outputs match within tolerance!")
+        logger.info("输出在容忍误差范围内匹配！")
         return True
     else:
-        logger.warning(f"Outputs differ by {diff} > {tolerance}")
+        logger.warning(f"输出差异为 {diff} > {tolerance}")
         return False
 
 
@@ -302,7 +302,7 @@ def parse_args() -> argparse.Namespace:
         解析后的参数
     """
     parser = argparse.ArgumentParser(
-        description="Export PyTorch BERT model to ONNX format",
+        description="将 PyTorch BERT 模型导出为 ONNX 格式",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -385,7 +385,7 @@ def main() -> None:
     # 验证
     if args.validate:
         if not validate_onnx_model(args.output_path, args.max_length):
-            logger.error("ONNX validation failed!")
+            logger.error("ONNX 验证失败！")
             sys.exit(1)
 
     # 优化
@@ -393,16 +393,16 @@ def main() -> None:
         try:
             optimize_onnx_model(args.output_path)
         except ImportError:
-            logger.warning("onnxruntime-transformers not installed, skipping optimization")
+            logger.warning("未安装 onnxruntime-transformers，跳过优化")
         except Exception as e:
-            logger.warning(f"Optimization failed: {e}")
+            logger.warning(f"优化失败: {e}")
 
     # 比较
     if args.compare:
         if not compare_models(args.model_path, args.output_path, args.max_length):
-            logger.warning("Model outputs differ significantly!")
+            logger.warning("模型输出差异显著！")
 
-    logger.info("Export complete!")
+    logger.info("导出完成！")
 
 
 if __name__ == "__main__":

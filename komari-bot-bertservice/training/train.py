@@ -271,7 +271,7 @@ class DataProcessor:
             self.preprocess_function,
             batched=True,
             remove_columns=["message", "context"],
-            desc="Tokenizing",
+            desc="正在分词",
         )
 
         # 设置格式
@@ -303,19 +303,19 @@ def train(
         resume_from_checkpoint: 检查点路径
     """
     logger = setup_logging()
-    logger.info("Loading training data...")
+    logger.info("正在加载训练数据...")
     dataset = load_training_data(data_path)
-    logger.info(f"Loaded {len(dataset)} examples")
+    logger.info(f"已加载 {len(dataset)} 条示例")
 
     # 划分训练集和验证集
     split_dataset = dataset.train_test_split(test_size=0.1, seed=42)
     train_dataset = split_dataset["train"]
     eval_dataset = split_dataset["test"]
 
-    logger.info(f"Train: {len(train_dataset)}, Eval: {len(eval_dataset)}")
+    logger.info(f"训练集: {len(train_dataset)}, 验证集: {len(eval_dataset)}")
 
     # 加载 tokenizer 和模型
-    logger.info(f"Loading model: {config.model.name}")
+    logger.info(f"正在加载模型: {config.model.name}")
     tokenizer = AutoTokenizer.from_pretrained(config.model.name)
     model_config = AutoConfig.from_pretrained(
         config.model.name,
@@ -329,7 +329,7 @@ def train(
     )
 
     # 数据预处理
-    logger.info("Preprocessing data...")
+    logger.info("正在预处理数据...")
     processor = DataProcessor(tokenizer, config.model.max_length)
     train_dataset = processor.prepare_dataset(train_dataset)
     eval_dataset = processor.prepare_dataset(eval_dataset)
@@ -385,14 +385,14 @@ def train(
         last_checkpoint = get_last_checkpoint(str(output_path))
         if last_checkpoint is not None:
             checkpoint = last_checkpoint
-            logger.info(f"Resuming from checkpoint: {checkpoint}")
+            logger.info(f"从检查点恢复训练: {checkpoint}")
 
     # 训练
-    logger.info("Starting training...")
+    logger.info("开始训练...")
     train_result = trainer.train(resume_from_checkpoint=checkpoint)
 
     # 保存模型
-    logger.info("Saving model...")
+    logger.info("正在保存模型...")
     trainer.save_model(str(output_path / "checkpoint-best"))
     tokenizer.save_pretrained(str(output_path / "checkpoint-best"))
 
@@ -403,12 +403,12 @@ def train(
     trainer.save_state()
 
     # 最终评估
-    logger.info("Running final evaluation...")
+    logger.info("正在运行最终评估...")
     eval_metrics = trainer.evaluate()
     trainer.log_metrics("eval", eval_metrics)
     trainer.save_metrics("eval", eval_metrics)
 
-    logger.info("Training complete!")
+    logger.info("训练完成！")
 
 
 # =============================================================================
@@ -422,7 +422,7 @@ def parse_args() -> argparse.Namespace:
         解析后的参数
     """
     parser = argparse.ArgumentParser(
-        description="Fine-tune BERT model for message scoring",
+        description="微调 BERT 模型用于消息评分",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 

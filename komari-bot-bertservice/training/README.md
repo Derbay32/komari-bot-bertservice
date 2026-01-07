@@ -237,6 +237,24 @@ output:
   save_steps: 500
 ```
 
+## 环境配置
+
+### HuggingFace 镜像站（中国大陆推荐）
+
+如果网络访问 HuggingFace 较慢，可以设置镜像站环境变量：
+
+```bash
+# 使用 HF-Mirror 镜像
+export HF_ENDPOINT="https://hf-mirror.com"
+
+# 或使用阿里云镜像
+export HF_ENDPOINT="https://huggingface.co.mirror.aliyuncs.com"
+```
+
+**常用镜像地址：**
+- HF-Mirror: `https://hf-mirror.com`
+- 阿里云: `https://huggingface.co.mirror.aliyuncs.com`
+
 ## 训练技巧
 
 ### 数据准备

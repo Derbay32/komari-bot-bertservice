@@ -6,17 +6,18 @@ from pathlib import Path
 
 import httpx
 import sentry_sdk
-from sentry_sdk.integrations.fastapi import FastApiIntegration
-from sentry_sdk.integrations.httpx import HttpxIntegration
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.httpx import HttpxIntegration
 
 from app.api.v1.router import api_router
 from app.config import settings
 from app.middleware.error_handler import add_exception_handlers
 from app.middleware.metrics import REGISTRY, MetricsMiddleware, generate_latest
 from app.services.inference_engine import ONNXInferenceEngine
+from app.services.score_logger import ScoreLogger
 from app.utils.logger import logger
 
 # 类型别名
@@ -209,9 +210,7 @@ async def lifespan(app: FastAPI):
             allowed_dirs=[str(d) for d in allowed_model_dirs],
             message="模型路径不在允许的目录内",
         )
-        raise ValueError(
-            f"Model path must be within allowed directories: {model_path}"
-        )
+        raise ValueError(f"Model path must be within allowed directories: {model_path}")
 
     # 验证分词器路径
     tokenizer_path_valid = any(

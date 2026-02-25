@@ -172,7 +172,18 @@ async def lifespan(app: FastAPI):
         logger.info("heartbeat_disabled", reason="no_url_provided")
 
     # ========================================
-    # 阶段 3: 应用启动
+    # 阶段 3: ScoreLogger 初始化
+    # ========================================
+    score_logger = ScoreLogger(
+        log_dir=settings.score_log_dir,
+        retention_days=settings.score_log_retention_days,
+    )
+    # 启动时清理过期旧日志
+    await score_logger.cleanup_old_logs()
+    app.state.score_logger = score_logger
+
+    # ========================================
+    # 阶段 4: 应用启动
     # ========================================
     logger.info("application_starting", version=settings.app_version)
 

@@ -99,6 +99,8 @@ def mock_inference_engine(mock_tokenizer):
     ]
     engine._cache = {}
     engine.cache_size = 1024
+    # provider 是 __init__ 内的实例属性，MagicMock(spec=...) 不自动暴露，需手动设置
+    engine.provider = "CPUExecutionProvider"
 
     return engine
 
@@ -114,10 +116,14 @@ def test_client():
 
 
 @pytest.fixture
-def test_client_with_mock_engine(mock_inference_engine):
+def test_client_with_mock_engine(mock_inference_engine, tmp_path):
     """带有 mock 推理引擎的测试客户端"""
+    from app.services.score_logger import ScoreLogger
+
     # 设置 mock 引擎到 app state
     app.state.inference_engine = mock_inference_engine
+    # 设置 ScoreLogger（写入临时目录，避免影响真实日志）
+    app.state.score_logger = ScoreLogger(log_dir=tmp_path / "test_logs", retention_days=180)
     return TestClient(app)
 
 

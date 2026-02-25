@@ -32,6 +32,7 @@ dependencies = [
     "uvloop (>=0.22.1,<0.23.0)",
     "google-genai (>=1.0.0,<2.0.0)",         # Google Gen AI SDK (新版)
     "tqdm (>=4.66.0,<5.0.0)",                # 进度条
+    "aiofiles (>=24.1.0,<25.0.0)",           # 异步文件 I/O（打分日志）
 ]
 
 # ================================================
@@ -71,3 +72,11 @@ package-mode = false
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+# 测试路径
+testpaths = ["komari-bot-bertservice/tests"]
+# Python 模块路径（方便 from app.xxx import 导入）
+pythonpath = ["komari-bot-bertservice"]
+# asyncio 模式：auto 不需要对每个测试单独标注 @pytest.mark.asyncio
+asyncio_mode = "auto"

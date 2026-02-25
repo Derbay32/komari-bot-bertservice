@@ -74,6 +74,10 @@ class Settings:
     deployment: str = os.getenv("DEPLOYMENT", "production")
     instance_id: str = os.getenv("INSTANCE_ID", "bert-1")
 
+    # 打分日志配置
+    score_log_dir: str = os.getenv("SCORE_LOG_DIR", "logs/score_logs")
+    score_log_retention_days: int = int(os.getenv("SCORE_LOG_RETENTION_DAYS", "180"))
+
     @property
     def sentry_enabled(self) -> bool:
         """检查 Sentry 是否启用

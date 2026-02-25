@@ -9,6 +9,7 @@ services:
       - .env.prod
     volumes:
       - ./models:/app/models:ro
+      - ./data/score-logs:/app/logs/score_logs
     restart: unless-stopped
     networks:
       - monitoring

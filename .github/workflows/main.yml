@@ -1,9 +1,16 @@
 name: Docker Hub Release
 
 on:
+  # 正式版本：在 GitHub 创建 Release 时触发
+  release:
+    types: [created]
+  # 预发布版本：推送 tag 时触发
   push:
     tags:
       - "v*"
+
+permissions:
+  contents: write
 
 jobs:
   docker:
@@ -53,43 +60,31 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Generate Tags
-        uses: docker/metadata-action@v4
-        id: metadata
-        with:
-          images: |
-            derbay32/komari-bot-bertservices
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern=latest
-            type=sha
+      # === 预发布版本额外步骤 ===
+      - name: Create Pre-release
+        if: github.event_name == 'push'
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --prerelease \
+            --title "预发布版本 ${{ github.ref_name }}" \
+            --notes "自动化构建的预发布版本"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Publish
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.metadata.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Generate and upload docker-compose.yml
+        if: github.event_name == 'push'
+        run: |
+          # 复制 docker-compose.yml 并替换镜像标签
+          sed 's|derbay32/komari-bot-bertservices:latest|derbay32/komari-bot-bertservices:${{ github.ref_name }}|g' docker-compose.yml > docker-compose-release.yml
 
-  release:
-    needs: docker
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+          # 上传到 Release
+          gh release upload "${{ github.ref_name }}" docker-compose-release.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Extract version tag
-        id: version
-        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
+      # === 正式版本额外步骤：上传部署包 ===
       - name: Create deployment package
+        if: github.event_name == 'release'
         run: |
           mkdir -p deploy-package
 
@@ -103,11 +98,46 @@ jobs:
           cp deploy/README.md deploy-package/README.md
 
           # 打包
-          tar czf bert-scoring-deploy-${{ steps.version.outputs.tag }}.tar.gz -C deploy-package .
+          tar czf bert-scoring-deploy-${{ github.ref_name }}.tar.gz -C deploy-package .
 
       - name: Upload Release Asset
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: bert-scoring-deploy-${{ steps.version.outputs.tag }}.tar.gz
+          files: bert-scoring-deploy-${{ github.ref_name }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # === 构建和发布 ===
+      - name: Determine version type
+        id: check_release
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Generate Tags
+        uses: docker/metadata-action@v4
+        id: metadata
+        with:
+          images: |
+            derbay32/komari-bot-bertservices
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+          flavor: |
+            latest=${{ steps.check_release.outputs.is_release == 'true' }}
+
+      - name: Build and Publish
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

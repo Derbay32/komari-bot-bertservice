@@ -25,6 +25,7 @@ from app.models.schemas import (
     ScoreResponse,
 )
 from app.services.inference_engine import ONNXInferenceEngine
+from app.services.score_logger import ScoreLogger, make_score_record
 from app.utils.logger import logger
 
 router = APIRouter()
@@ -65,10 +66,23 @@ def get_inference_engine(request: Request) -> ONNXInferenceEngine:
     return engine
 
 
+def get_score_logger(request: Request) -> ScoreLogger | None:
+    """依赖注入：获取打分日志记录器
+
+    Args:
+        request: FastAPI 请求对象
+
+    Returns:
+        ScoreLogger 实例，若未初始化则返回 None
+    """
+    return getattr(request.app.state, "score_logger", None)
+
+
 @router.post("/score", response_model=ScoreResponse)
 async def score_message(
     request: ScoreRequest,
     engine: ONNXInferenceEngine = Depends(get_inference_engine),
+    score_logger: ScoreLogger | None = Depends(get_score_logger),
     _rate_limit: None = Depends(check_rate_limit_middleware),
 ) -> ScoreResponse:
     """单条消息评分
@@ -133,6 +147,21 @@ async def score_message(
                 group_id=request.group_id,
             )
 
+            # 写入打分日志文件
+            if score_logger:
+                record = make_score_record(
+                    message=request.message,
+                    message_length=len(request.message),
+                    score=score,
+                    category=category,
+                    confidence=confidence,
+                    processing_time_ms=processing_time,
+                    source="single",
+                    user_id=request.user_id,
+                    group_id=request.group_id,
+                )
+                await score_logger.log(record)
+
             return ScoreResponse(
                 score=score,
                 category=category,  # type: ignore[arg-type]
@@ -149,6 +178,7 @@ async def score_message(
 async def score_messages_batch(
     request: BatchScoreRequest,
     engine: ONNXInferenceEngine = Depends(get_inference_engine),
+    score_logger: ScoreLogger | None = Depends(get_score_logger),
     _rate_limit: None = Depends(check_rate_limit_middleware),
 ) -> BatchScoreResponse:
     """批量消息评分
@@ -240,6 +270,24 @@ async def score_messages_batch(
                 batch_size=len(request.messages),
                 total_processing_time_ms=total_time,
             )
+
+            # 写入打分日志文件
+            if score_logger:
+                for (score, category, confidence), original in zip(
+                    results, request.messages
+                ):
+                    record = make_score_record(
+                        message=original.message,
+                        message_length=len(original.message),
+                        score=score,
+                        category=category,
+                        confidence=confidence,
+                        processing_time_ms=total_time / len(request.messages),
+                        source="batch",
+                        user_id=original.user_id,
+                        group_id=original.group_id,
+                    )
+                    await score_logger.log(record)
 
             return BatchScoreResponse(
                 results=response_results,

@@ -13,10 +13,10 @@ from pathlib import Path
 
 import pytest
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def log_dir(tmp_path: Path) -> Path:
@@ -41,6 +41,7 @@ def make_record(**kwargs) -> dict:
     from app.services.score_logger import make_score_record
 
     defaults = dict(
+        message="测试消息内容",
         message_length=10,
         score=0.65,
         category="normal",
@@ -57,6 +58,7 @@ def make_record(**kwargs) -> dict:
 # =============================================================================
 # 初始化测试（同步）
 # =============================================================================
+
 
 class TestScoreLoggerInit:
     """ScoreLogger 初始化测试"""
@@ -96,6 +98,7 @@ class TestScoreLoggerInit:
 # 写入测试（异步）
 # =============================================================================
 
+
 class TestScoreLoggerWrite:
     """日志写入功能测试"""
 
@@ -119,21 +122,27 @@ class TestScoreLoggerWrite:
         assert record["score"] == 0.9
         assert record["category"] == "interrupt"
 
-    async def test_log_multiple_records_one_per_line(self, score_logger, log_dir: Path) -> None:
+    async def test_log_multiple_records_one_per_line(
+        self, score_logger, log_dir: Path
+    ) -> None:
         """测试：多条记录各占一行（JSONL 格式）"""
         for i in range(5):
             await score_logger.log(make_record(score=float(i) * 0.1))
 
         today_str = date.today().isoformat()
         log_file = log_dir / f"score_log_{today_str}.jsonl"
-        lines = [ln for ln in log_file.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        lines = [
+            ln for ln in log_file.read_text(encoding="utf-8").splitlines() if ln.strip()
+        ]
         assert len(lines) == 5
 
         for line in lines:
             obj = json.loads(line)
             assert "score" in obj
 
-    async def test_log_record_has_required_fields(self, score_logger, log_dir: Path) -> None:
+    async def test_log_record_has_required_fields(
+        self, score_logger, log_dir: Path
+    ) -> None:
         """测试：日志记录包含所有必须字段"""
         record = make_record(source="batch", user_id="u42", group_id="g99")
         await score_logger.log(record)
@@ -144,22 +153,31 @@ class TestScoreLoggerWrite:
         obj = json.loads(content)
 
         required_fields = {
-            "timestamp", "message_length", "score", "category",
-            "confidence", "processing_time_ms", "source",
+            "timestamp",
+            "message_length",
+            "score",
+            "category",
+            "confidence",
+            "processing_time_ms",
+            "source",
         }
         assert required_fields.issubset(obj.keys())
         assert obj["source"] == "batch"
         assert obj["user_id"] == "u42"
         assert obj["group_id"] == "g99"
 
-    async def test_log_appends_to_existing_file(self, score_logger, log_dir: Path) -> None:
+    async def test_log_appends_to_existing_file(
+        self, score_logger, log_dir: Path
+    ) -> None:
         """测试：追加写入不覆盖现有行"""
         await score_logger.log(make_record(score=0.1))
         await score_logger.log(make_record(score=0.9))
 
         today_str = date.today().isoformat()
         log_file = log_dir / f"score_log_{today_str}.jsonl"
-        lines = [ln for ln in log_file.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        lines = [
+            ln for ln in log_file.read_text(encoding="utf-8").splitlines() if ln.strip()
+        ]
         assert len(lines) == 2
 
         scores = [json.loads(ln)["score"] for ln in lines]
@@ -170,6 +188,7 @@ class TestScoreLoggerWrite:
 # =============================================================================
 # 文件命名测试（同步）
 # =============================================================================
+
 
 class TestScoreLoggerFilenaming:
     """日志文件命名测试"""
@@ -190,6 +209,7 @@ class TestScoreLoggerFilenaming:
 # 清理测试（异步）
 # =============================================================================
 
+
 class TestScoreLoggerCleanup:
     """旧文件清理功能测试"""
 
@@ -208,7 +228,9 @@ class TestScoreLoggerCleanup:
         await score_logger.cleanup_old_logs()
         assert not old_file.exists()
 
-    async def test_cleanup_keeps_recent_files(self, score_logger, log_dir: Path) -> None:
+    async def test_cleanup_keeps_recent_files(
+        self, score_logger, log_dir: Path
+    ) -> None:
         """测试：保留期内的文件不被删除"""
         recent_file = self._create_log_file(log_dir, date.today() - timedelta(days=10))
         today_file = self._create_log_file(log_dir, date.today())
@@ -218,7 +240,9 @@ class TestScoreLoggerCleanup:
         assert recent_file.exists()
         assert today_file.exists()
 
-    async def test_cleanup_keeps_boundary_file(self, score_logger, log_dir: Path) -> None:
+    async def test_cleanup_keeps_boundary_file(
+        self, score_logger, log_dir: Path
+    ) -> None:
         """测试：恰好等于保留天数边界的文件被保留"""
         boundary_date = date.today() - timedelta(days=180)
         boundary_file = self._create_log_file(log_dir, boundary_date)
@@ -226,7 +250,9 @@ class TestScoreLoggerCleanup:
         await score_logger.cleanup_old_logs()
         assert boundary_file.exists()
 
-    async def test_cleanup_ignores_unmatched_files(self, score_logger, log_dir: Path) -> None:
+    async def test_cleanup_ignores_unmatched_files(
+        self, score_logger, log_dir: Path
+    ) -> None:
         """测试：不匹配命名格式的文件不受影响"""
         other_file = log_dir / "random_file.txt"
         other_file.write_text("data", encoding="utf-8")
@@ -249,10 +275,13 @@ class TestScoreLoggerCleanup:
 # 并发写入测试（异步）
 # =============================================================================
 
+
 class TestScoreLoggerConcurrency:
     """并发写入安全性测试"""
 
-    async def test_concurrent_writes_no_data_loss(self, score_logger, log_dir: Path) -> None:
+    async def test_concurrent_writes_no_data_loss(
+        self, score_logger, log_dir: Path
+    ) -> None:
         """测试：并发写入不丢失任何记录"""
         n = 50
         tasks = [score_logger.log(make_record(score=float(i) / n)) for i in range(n)]
@@ -260,17 +289,23 @@ class TestScoreLoggerConcurrency:
 
         today_str = date.today().isoformat()
         log_file = log_dir / f"score_log_{today_str}.jsonl"
-        lines = [ln for ln in log_file.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        lines = [
+            ln for ln in log_file.read_text(encoding="utf-8").splitlines() if ln.strip()
+        ]
         assert len(lines) == n
 
-    async def test_concurrent_writes_all_valid_json(self, score_logger, log_dir: Path) -> None:
+    async def test_concurrent_writes_all_valid_json(
+        self, score_logger, log_dir: Path
+    ) -> None:
         """测试：并发写入后每一行都是合法 JSON（无损坏行）"""
         tasks = [score_logger.log(make_record()) for _ in range(30)]
         await asyncio.gather(*tasks)
 
         today_str = date.today().isoformat()
         log_file = log_dir / f"score_log_{today_str}.jsonl"
-        lines = [ln for ln in log_file.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        lines = [
+            ln for ln in log_file.read_text(encoding="utf-8").splitlines() if ln.strip()
+        ]
 
         for line in lines:
             obj = json.loads(line)

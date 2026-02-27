@@ -150,6 +150,7 @@ async def score_message(
             # 写入打分日志文件
             if score_logger:
                 record = make_score_record(
+                    message=request.message,
                     message_length=len(request.message),
                     score=score,
                     category=category,
@@ -276,6 +277,7 @@ async def score_messages_batch(
                     results, request.messages
                 ):
                     record = make_score_record(
+                        message=original.message,
                         message_length=len(original.message),
                         score=score,
                         category=category,

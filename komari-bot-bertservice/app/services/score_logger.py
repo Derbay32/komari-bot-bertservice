@@ -132,6 +132,7 @@ class ScoreLogger:
 
 def make_score_record(
     *,
+    message: str,
     message_length: int,
     score: float,
     category: str,
@@ -144,6 +145,7 @@ def make_score_record(
     """构造标准的打分日志记录字典
 
     Args:
+        message: 原始消息文本
         message_length: 消息字符长度
         score: 连续评分值 (0.0-1.0)
         category: 分类标签（low_value / normal / interrupt）
@@ -158,6 +160,7 @@ def make_score_record(
     """
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "message": message,
         "message_length": message_length,
         "score": score,
         "category": category,
